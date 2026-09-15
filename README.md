@@ -19,6 +19,8 @@ Local, rules-based preparation of Forms Mobile Electrical Services Job Pack XML 
 
 The prepared pack copies the engineers from the booking's **A&A Resources** field. Vehicle registrations are ignored; the first two people become **Lead Engineer** and **Engineer 2**. It also applies the cover details, repeated job/date/address fields, common safety answers, N/A values and the standard hazard controls seen consistently in the completed examples.
 
+The site/customer representative is set to **SM**. When a prepared XML is saved, the app uses the site postcode to make a best-effort lookup for the nearest OpenStreetMap hospital marked as providing emergency services. The result is cached locally; if the lookup is unavailable or has no suitable result, the field is set to **Hospital**.
+
 ## Shared folder import
 
 The app can manually scan a specific Unraid share. Add this to the `.env` file beside `docker-compose.yml`:
