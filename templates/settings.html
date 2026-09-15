@@ -10,6 +10,10 @@
   <header><a class="back" href="/">← Planner</a><h1>Settings</h1></header>
   <main>
     <section class="card">
+      <h2>Import booking files</h2><p>Use this when you need to add booking XML files manually.</p>
+      <label class="drop"><strong>Choose booking XML files</strong>Tap to browse<input id="files" type="file" accept=".xml,text/xml" multiple></label>
+    </section>
+    <section class="card">
       <h2>Forms Mobile template</h2><p>Install a completed Job Pack XML once. Its answers, photos and signatures are cleared before it is stored.</p>
       <label class="drop"><strong>Choose completed Job Pack XML</strong>Tap to browse<input id="master" type="file" accept=".xml,text/xml"></label>
       <div class="status" id="masterState">Checking template…</div>
@@ -32,6 +36,7 @@
     function pop(text){const t=document.querySelector('#toast');t.textContent=text;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2200)}
     async function load(){const state=await fetch('/api/state').then(r=>r.json()),folder=await fetch('/api/folder/status').then(r=>r.json());masterState.textContent=state.master?'Template installed ✓':'No template installed';resources.value=state.settings.resources||'Adam Freeman, Peter Bennett, RA25 TLZ';folderState.textContent=folder.available?`${folder.path} · ${folder.bookings} booking file${folder.bookings===1?'':'s'} · ${folder.templates} template file${folder.templates===1?'':'s'}`:'Shared folder is not available. Check the Docker volume setting.'}
     document.querySelector('#master').onchange=async event=>{const data=new FormData();data.append('file',event.target.files[0]);const r=await fetch('/api/master',{method:'POST',body:data}),x=await r.json();if(r.ok)pop('Template installed');else pop(x.error||'Could not read template');event.target.value='';load()};
+    document.querySelector('#files').onchange=async event=>{const data=new FormData();[...event.target.files].forEach(file=>data.append('files',file));const x=await fetch('/api/import',{method:'POST',body:data}).then(r=>r.json());pop(`${x.added.length} booking${x.added.length===1?'':'s'} imported`);event.target.value=''};
     document.querySelector('#scan').onclick=async()=>{folderState.textContent='Scanning…';const x=await fetch('/api/folder/scan',{method:'POST'}).then(r=>r.json());pop(`${x.bookings.length} booking file${x.bookings.length===1?'':'s'} read${x.template?' · template installed':''}`);load()};
     document.querySelector('#save').onclick=async()=>{await fetch('/api/save',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({day:'',jobs:[],settings:{resources:resources.value}})});pop('Fallback saved')};load();
   </script>
