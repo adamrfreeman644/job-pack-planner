@@ -36,3 +36,7 @@ There is no Outlook integration, Microsoft login, background watcher or schedule
 Test generated XML with Forms Mobile and the company workflow using a non-critical copy before relying on it. Forms Mobile compatibility is the next validation milestone. Route optimisation and detected office/collection stops are planned after XML round-trip compatibility is confirmed.
 
 All data is stored in the local `data` directory. Do not expose port 1976 directly to the internet.
+
+## Install as a Chrome app
+
+Open the HTTPS address in Chrome, use the install icon in the address bar (or **Menu → Cast, save and share → Install page as app**) and choose **Install**. The installed app uses its own Job Pack Planner icon, standalone window, matching splash colour and full branded header.
