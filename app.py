@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, send_from_directory
 from pathlib import Path
 from datetime import datetime
 import sqlite3, xml.etree.ElementTree as ET, io, re, json, os
@@ -90,6 +90,12 @@ def share_inventory():
 
 @app.get('/')
 def home(): return render_template('index.html')
+
+@app.get('/sw.js')
+def service_worker():
+ response=send_from_directory(app.static_folder,'sw.js',mimetype='application/javascript')
+ response.headers['Service-Worker-Allowed']='/'
+ return response
 
 @app.get('/settings')
 def settings_page(): return render_template('settings.html')
