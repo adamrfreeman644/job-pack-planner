@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Settings · Job Pack Planner</title>
+  <style>
+    :root{--ink:#152b36;--navy:#102f3e;--teal:#087f6d;--bg:#edf2f3;--line:#d7e2e5;--muted:#657984}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}header{height:70px;background:var(--navy);color:#fff;padding:0 max(18px,5vw);display:flex;align-items:center;gap:13px}.back{color:#fff;text-decoration:none;border:1px solid #577482;border-radius:10px;padding:8px 11px;font-weight:750}header h1{font-size:1.1rem;margin:0}main{max-width:800px;margin:auto;padding:22px 18px;display:grid;gap:16px}.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:19px;box-shadow:0 8px 28px #1939460d}h2,p{margin:0}h2{font-size:1.05rem;margin-bottom:5px}p,.help{color:var(--muted)}button{appearance:none;border:0;background:var(--teal);color:#fff;border-radius:9px;padding:11px 14px;font:inherit;font-weight:750;cursor:pointer}.secondary{background:#355b6d}.wide{width:100%;margin-top:13px}.drop{display:block;text-align:center;border:2px dashed #a9bec5;padding:20px 12px;border-radius:11px;color:var(--muted);margin-top:14px;cursor:pointer}.drop strong{display:block;color:var(--ink)}.drop input{display:none}.field{display:block;margin-top:13px;font-weight:700}.field input{display:block;width:100%;margin-top:5px;border:1px solid var(--line);border-radius:9px;padding:10px;font:inherit}.status{margin-top:12px;padding:11px;background:#f4f8f9;border-radius:9px;color:var(--muted)}code{background:#edf3f4;padding:2px 5px;border-radius:5px;color:#294957}.folders{margin:12px 0 0;padding-left:20px;color:#3d5661}.toast{position:fixed;bottom:18px;left:50%;transform:translate(-50%,100px);background:var(--ink);color:#fff;padding:11px 15px;border-radius:9px;transition:.2s}.toast.on{transform:translate(-50%,0)}@media(max-width:600px){main{padding:12px}.card{border-radius:13px;padding:16px}}
+  </style>
+</head>
+<body>
+  <header><a class="back" href="/">← Planner</a><h1>Settings</h1></header>
+  <main>
+    <section class="card">
+      <h2>Forms Mobile template</h2><p>Install a completed Job Pack XML once. Its answers, photos and signatures are cleared before it is stored.</p>
+      <label class="drop"><strong>Choose completed Job Pack XML</strong>Tap to browse<input id="master" type="file" accept=".xml,text/xml"></label>
+      <div class="status" id="masterState">Checking template…</div>
+    </section>
+    <section class="card">
+      <h2>Shared folder import</h2><p>The app only scans this folder when you press the button. It does not monitor email or run on a schedule.</p>
+      <ul class="folders"><li><code>bookings</code> — booking XML files</li><li><code>template</code> — completed Job Pack XML</li></ul>
+      <div class="status" id="folderState">Checking shared folder…</div>
+      <button class="wide" id="scan">Scan shared folder now</button>
+    </section>
+    <section class="card">
+      <h2>Engineer fallback</h2><p>Normally engineers come directly from each booking’s A&amp;A Resources field. This is only used when that field is empty.</p>
+      <label class="field">Default resources<input id="resources" placeholder="Adam Freeman, Peter Bennett, RA25 TLZ"></label>
+      <button class="secondary wide" id="save">Save fallback</button>
+    </section>
+  </main>
+  <div class="toast" id="toast"></div>
+  <script>
+    const masterState=document.querySelector('#masterState'),folderState=document.querySelector('#folderState'),resources=document.querySelector('#resources');
+    function pop(text){const t=document.querySelector('#toast');t.textContent=text;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2200)}
+    async function load(){const state=await fetch('/api/state').then(r=>r.json()),folder=await fetch('/api/folder/status').then(r=>r.json());masterState.textContent=state.master?'Template installed ✓':'No template installed';resources.value=state.settings.resources||'Adam Freeman, Peter Bennett, RA25 TLZ';folderState.textContent=folder.available?`${folder.path} · ${folder.bookings} booking file${folder.bookings===1?'':'s'} · ${folder.templates} template file${folder.templates===1?'':'s'}`:'Shared folder is not available. Check the Docker volume setting.'}
+    document.querySelector('#master').onchange=async event=>{const data=new FormData();data.append('file',event.target.files[0]);const r=await fetch('/api/master',{method:'POST',body:data}),x=await r.json();if(r.ok)pop('Template installed');else pop(x.error||'Could not read template');event.target.value='';load()};
+    document.querySelector('#scan').onclick=async()=>{folderState.textContent='Scanning…';const x=await fetch('/api/folder/scan',{method:'POST'}).then(r=>r.json());pop(`${x.bookings.length} booking file${x.bookings.length===1?'':'s'} read${x.template?' · template installed':''}`);load()};
+    document.querySelector('#save').onclick=async()=>{await fetch('/api/save',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({day:'',jobs:[],settings:{resources:resources.value}})});pop('Fallback saved')};load();
+  </script>
+</body>
+</html>
