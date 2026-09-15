@@ -24,6 +24,27 @@
       <label class="field">Default resources<input id="resources" placeholder="Adam Freeman, Peter Bennett, RA25 TLZ"></label>
       <button class="secondary wide" id="save">Save fallback</button>
     </section>
+    <section class="card">
+      <h2>Job photos · Immich</h2>
+      <p>Find photos taken between each job’s saved arrival and departure times.</p>
+      <form id="immich-form">
+        <label class="field">Immich address<input id="immich-url" type="url" placeholder="http://your-immich-server:2283" autocomplete="url"></label>
+        <label class="field">API key<input id="immich-key" type="password" autocomplete="new-password" placeholder="Enter an Immich API key"></label>
+        <p class="help" id="immich-key-help">The key stays on this server and is never displayed again.</p>
+        <label class="field">Job timezone<input id="immich-timezone" value="Europe/London" placeholder="Europe/London" required></label>
+        <label class="field">Minutes before and after each job<input id="immich-margin" type="number" min="0" max="120" value="0" required></label>
+        <label class="field" for="immich-interval">Check for new photos</label>
+        <select id="immich-interval" style="width:100%;padding:10px;border:1px solid #d7e2e5;border-radius:9px;background:white;font:inherit">
+          <option value="0">Only when I ask</option><option value="1">Every minute</option><option value="5" selected>Every 5 minutes</option><option value="10">Every 10 minutes</option><option value="15">Every 15 minutes</option><option value="30">Every 30 minutes</option><option value="60">Every hour</option>
+        </select>
+        <p class="help">Automatic checks run for the selected day while the planner is visible. Photos stay in the same order while the viewer is open.</p>
+        <button type="submit" class="wide" id="immich-save">Save photo settings</button>
+        <button type="button" class="secondary wide" id="immich-test">Save and test connection</button>
+        <button type="button" class="secondary wide" id="immich-disconnect">Remove saved API key</button>
+      </form>
+      <div class="status" id="immich-status" role="status">Loading photo settings…</div>
+      <p class="help" style="margin-top:12px">In Immich, create a key with asset.read and asset.view permissions. Some previews also need asset.download. Use an account whose photos you want available in this planner.</p>
+    </section>
   </main>
   <div class="toast" id="toast"></div>
   <script>
@@ -34,5 +55,6 @@
     document.querySelector('#scan').onclick=async()=>{folderState.textContent='Scanning…';const x=await fetch('/api/folder/scan',{method:'POST'}).then(r=>r.json());pop(`${x.bookings.length} booking file${x.bookings.length===1?'':'s'} read${x.template?' · template installed':''}`);load()};
     document.querySelector('#save').onclick=async()=>{await fetch('/api/save',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({day:'',jobs:[],settings:{resources:resources.value}})});pop('Fallback saved')};load();if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js'));
   </script>
+  <script src="/static/photo-settings.js"></script>
 </body>
 </html>

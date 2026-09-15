@@ -6,7 +6,7 @@ from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 app=Flask(__name__)
-DATA=Path('/data'); DATA.mkdir(exist_ok=True)
+DATA=Path(os.getenv('JOB_PACK_DATA','/data')); DATA.mkdir(parents=True,exist_ok=True)
 DB=DATA/'planner.db'; MASTER=DATA/'master.xml'
 SHARE=Path(os.getenv('JOB_PACK_SHARE','/imports'))
 
@@ -133,7 +133,7 @@ def settings_page(): return render_template('settings.html')
 @app.get('/api/state')
 def state():
  c=db(); jobs=[dict(x) for x in c.execute('SELECT * FROM jobs ORDER BY day,position,id')]
- st={x['k']:x['v'] for x in c.execute('SELECT * FROM settings')}; c.close()
+ st={x['k']:x['v'] for x in c.execute('SELECT * FROM settings') if not x['k'].startswith('immich_')}; c.close()
  return jsonify(jobs=jobs,settings=st,master=MASTER.exists())
 
 @app.post('/api/import')
@@ -163,7 +163,8 @@ def folder_scan(): return jsonify(scan_share_folder())
 def save():
  body=request.json; c=db()
  for i,j in enumerate(body['jobs']): c.execute('UPDATE jobs SET day=?,start=?,finish=?,position=? WHERE id=?',(body['day'],j['start'],j['finish'],i,j['id']))
- for k,v in body.get('settings',{}).items(): c.execute('INSERT OR REPLACE INTO settings(k,v) VALUES(?,?)',(k,str(v)))
+ for k,v in body.get('settings',{}).items():
+  if k in {'leave_home','return_home','resources','rams'}: c.execute('INSERT OR REPLACE INTO settings(k,v) VALUES(?,?)',(k,str(v)))
  c.commit(); c.close(); return jsonify(ok=True)
 
 def set_occurrences(rec,name,value):
@@ -199,5 +200,8 @@ def export(job_id):
 @app.delete('/api/jobs/<int:job_id>')
 def delete(job_id):
  c=db(); c.execute('DELETE FROM jobs WHERE id=?',(job_id,)); c.commit(); c.close(); return jsonify(ok=True)
+
+from photos import register_photos
+register_photos(app, db)
 
 if __name__=='__main__': app.run(host='0.0.0.0',port=1976)

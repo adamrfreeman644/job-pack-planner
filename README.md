@@ -14,6 +14,7 @@ Import bookings, set arrival and departure times, and download a pre-filled XML 
 - Use engineers from each booking, with a configurable fallback.
 - Look up a nearby emergency hospital when exporting a pack.
 - Open the app in a standalone browser window on supported browsers.
+- View Immich photos taken during a job in a clean, white fullscreen viewer.
 
 ## Install with Docker on Unraid
 
@@ -77,13 +78,48 @@ On export, the app sends the site postcode to Postcodes.io, then queries OpenStr
 
 Successful results are cached locally by site postcode. If the lookup fails or finds no suitable result, the field contains `Hospital`. The result is a best-effort suggestion and should be checked for the job.
 
+## Job photos with Immich
+
+Open **Settings → Job photos · Immich** and enter:
+
+- **Immich address:** the address reachable from the planner container, such as `http://your-immich-server:2283`. A trailing `/api` is optional.
+- **API key:** create a key in Immich with `asset.read` and `asset.view` permissions. Some Immich preview responses redirect to the original image and also require `asset.download`. Use **Save and test connection** to check search and preview access.
+- **Job timezone:** defaults to `Europe/London`, including daylight-saving changes.
+- **Minutes before and after each job:** an optional allowance from 0 to 120 minutes, defaulting to 0.
+- **Check for new photos:** every 5 minutes by default, or choose a different interval or manual checks only.
+
+The API key is saved in the planner's local database and is never returned to the browser or included in photo URLs. Leaving the key blank keeps the saved key. Changing the server address requires a new key; **Remove saved API key** disconnects access. Protect database backups because they contain this credential. The existing trusted-network access model applies: people who can open the planner can view the job photos made available by that Immich account.
+
+### Use the viewer
+
+1. Save the job's arrival and departure times with **Save day**.
+2. Click **Photos** beside **Description** and **Save XML**. The planner checks Immich and opens the first matching photo.
+3. Tap anywhere in the left half to go back, or the right half to go forward. Arrow keys work too.
+4. A plain **Leave photo viewer** screen sits before the first and after the last photo. Tap either half on that screen to return to the planner, or press Escape at any time.
+
+Photos appear oldest first, fitted completely inside a white screen with no visible buttons, captions or counters. The viewer uses Immich's browser-compatible preview images; their resolution depends on the Immich server's preview settings. Browsers that allow the Fullscreen API hide browser chrome. Otherwise the viewer fills the page; use an installed standalone app for the cleanest screenshots. Loading and error messages appear only when a photo cannot yet be displayed.
+
+**Check photos** in the planner header refreshes photo counts for the selected day. Automatic checks run while the planner page is visible, and pause while the viewer is open. The photo sequence stays fixed during viewing; reopen it to include newly uploaded photos. No scheduled server process runs when the planner is closed.
+
+Matching uses Immich's capture timestamp (`fileCreatedAt`), not upload time, and includes the saved arrival and departure instants. A departure earlier than arrival means the following day; identical times must be corrected. Photos with missing or incorrect capture metadata may not match. Videos and trashed assets are excluded. Matching is by time only, so unrelated photos taken during the same window can also appear. Every results page is checked; failed checks report an error rather than silently showing a partial result.
+
+The integration uses Immich's [metadata search](https://github.com/immich-app/immich/blob/main/server/src/controllers/search.controller.ts) and [photo preview](https://github.com/immich-app/immich/blob/main/server/src/controllers/asset-media.controller.ts) APIs. Search and photo content pass through the planner server; the browser does not connect directly to Immich.
+
+### Update an existing installation
+
+Pull the latest repository files, then run `docker compose up -d --build` in the installation folder. Refresh the planner page and configure Immich in Settings. Existing bookings and the master template remain in `data`.
+
+### Run the tests
+
+With the requirements installed, run `python -m unittest discover -s tests -v`. Tests use temporary databases and mocked Immich responses; they do not need a real API key or photo library.
+
 ## Data and access
 
 The host's `data` folder contains:
 
 | File | Contents |
 | --- | --- |
-| `planner.db` | Bookings, saved times, settings and cached hospital results |
+| `planner.db` | Bookings, saved times, settings (including the Immich key), cached hospital results and the latest photo matches per job |
 | `master.xml` | The prepared master template |
 
 Back up this folder to preserve the planner's data. Original files in the import folder are read without being changed.

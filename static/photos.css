@@ -1,0 +1,15 @@
+.photo-header{margin-left:auto;background:transparent;border:1px solid #6f8995;white-space:nowrap;font-size:.85rem;padding:10px}
+header .date{margin-left:0}
+.actions button{min-width:0;padding:10px 7px;font-size:.86rem}
+.photo-viewer[hidden]{display:none}
+.photo-viewer{position:fixed;inset:0;width:100%;height:100%;height:100dvh;z-index:1000;background:#fff;color:#263238;overflow:hidden;isolation:isolate;touch-action:manipulation;user-select:none}
+.photo-viewer:fullscreen{background:#fff;width:100vw;height:100vh}
+.photo-viewer img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;background:#fff;pointer-events:none}
+.photo-viewer img[hidden]{display:none}
+.photo-message{position:absolute;inset:0;display:grid;place-content:center;text-align:center;gap:12px;padding:32px;font:400 20px/1.5 system-ui;color:#526168}
+.photo-message[hidden]{display:none}
+.photo-message small{font-size:14px;color:#77858b;max-width:36em}
+.photo-viewer .photo-hit{position:absolute;top:0;bottom:0;width:50%;padding:0;margin:0;border:0;border-radius:0;background:transparent;color:transparent;outline:none;box-shadow:none;-webkit-tap-highlight-color:transparent;cursor:none}
+.photo-hit.previous{left:0}.photo-hit.next{right:0}
+body.viewer-open{overflow:hidden}body.viewer-open>.toast{display:none}
+@media(max-width:780px){.actions{flex-direction:row}.photo-header{font-size:.72rem;padding:9px 7px}header .date{min-width:0;width:136px;font-size:.88rem}header{gap:6px}.icon-link{width:34px;flex-shrink:0}.app-mark{width:32px;height:32px}}
