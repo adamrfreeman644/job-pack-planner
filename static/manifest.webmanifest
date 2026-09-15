@@ -1,0 +1,17 @@
+{
+  "name": "Job Pack Planner",
+  "short_name": "Job Packs",
+  "description": "Prepare and share Forms Mobile job pack XML files.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#edf2f3",
+  "theme_color": "#102f3e",
+  "categories": ["business", "productivity", "utilities"],
+  "icons": [
+    {"src": "/static/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ]
+}
