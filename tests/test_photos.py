@@ -103,6 +103,31 @@ class PhotoTests(unittest.TestCase):
         self.assertFalse(response.json['has_key'])
         self.assertEqual(response.json['url'], 'https://another-server/api')
 
+    def test_https_browser_through_http_reverse_proxy(self):
+        headers = {'Origin':'https://jobpack.example.com', 'Sec-Fetch-Site':'same-origin'}
+        response = self.client.post('/api/photos/settings', base_url='http://jobpack.example.com',
+                                    headers=headers, json={**CONFIG, 'key':''})
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json['has_key'])
+        with patch('photos.immich_request', return_value={'assets':{'items':[]}}):
+            response = self.client.post('/api/photos/test', base_url='http://jobpack.example.com',
+                                        headers=headers, json={})
+        self.assertEqual(response.status_code, 200)
+        with patch('photos.search_photos', return_value=[]):
+            response = self.client.post('/api/jobs/1/photos/check', base_url='http://jobpack.example.com',
+                                        headers=headers, json={})
+        self.assertEqual(response.status_code, 200)
+
+    def test_proxy_support_still_rejects_cross_origin_requests(self):
+        for origin, site in [('https://other.example.com','same-site'),
+                             ('https://evil.example','cross-site'),
+                             ('https://evil.example','same-origin'),
+                             ('null','same-origin'),
+                             ('https://jobpack.example.com','same-site')]:
+            response = self.client.post('/api/photos/settings', base_url='http://jobpack.example.com',
+                headers={'Origin':origin, 'Sec-Fetch-Site':site}, json=CONFIG)
+            self.assertEqual(response.status_code, 403, (origin, site))
+
     def test_invalid_settings_and_cross_origin_rejected(self):
         for override in [{'timezone':'No/Such'}, {'margin':121}, {'interval':2}, {'url':'file:///etc/passwd'}]:
             response = self.client.post('/api/photos/settings', json={**CONFIG, **override})

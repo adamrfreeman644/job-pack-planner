@@ -155,7 +155,21 @@ def register_photos(app, db):
             try:
                 if request.method == 'POST':
                     origin = request.headers.get('Origin')
-                    if (origin and origin != request.host_url.rstrip('/')) or not request.is_json:
+                    fetch_site = request.headers.get('Sec-Fetch-Site')
+                    same_origin = not origin or origin == request.host_url.rstrip('/')
+                    if origin and not same_origin and fetch_site == 'same-origin':
+                        # TLS may terminate at the reverse proxy. Fetch Metadata is
+                        # browser-controlled; also require the original Host to match.
+                        # Do not trust arbitrary X-Forwarded-* headers or allow sibling sites.
+                        try:
+                            parsed = urlsplit(origin)
+                            same_origin = (parsed.scheme in {'http', 'https'}
+                                           and parsed.netloc.lower() == request.host.lower()
+                                           and not parsed.path and not parsed.query and not parsed.fragment)
+                        except ValueError:
+                            same_origin = False
+                    if (not same_origin or fetch_site in {'cross-site', 'same-site'}
+                            or not request.is_json):
                         raise PhotoError('Use the planner to submit this request.', 403)
                 response = app.make_response(fn(*args, **kwargs))
             except PhotoError as error:
