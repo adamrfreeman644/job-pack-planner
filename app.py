@@ -30,6 +30,17 @@ def first(d,*names):
   if d.get(n) and d[n][0]: return d[n][0]
  return ''
 
+def assigned_engineers(resource_text):
+ parts=[x.strip() for x in re.split(r'[,;\n]+',resource_text or '') if x.strip()]
+ vehicle=re.compile(r'^[A-Z]{2}\d{2}\s*[A-Z]{3}$',re.I)
+ people=[x for x in parts if not vehicle.match(x) and re.search(r'[A-Za-z].+\s+[A-Za-z]',x)]
+ short=[]
+ preferred={'peter':'Pete'}
+ for person in people[:2]:
+  first_name=person.split()[0]
+  short.append(preferred.get(first_name.lower(),first_name))
+ return short
+
 def import_booking(raw):
  root=ET.fromstring(raw); rec=root.find('record')
  if rec is None: return None
@@ -142,16 +153,28 @@ def set_occurrences(rec,name,value):
  for f in rec.findall('field'):
   if f.get('name')==name: f.text=str(value or '')
 
+def set_occurrence_values(rec,name,values):
+ matches=[f for f in rec.findall('field') if f.get('name')==name]
+ for i,f in enumerate(matches): f.text=str(values[i] if i<len(values) else '')
+
 @app.get('/api/export/<int:job_id>')
 def export(job_id):
  if not MASTER.exists(): return jsonify(error='Upload a completed reference XML in Settings first'),400
  c=db(); job=c.execute('SELECT * FROM jobs WHERE id=?',(job_id,)).fetchone(); jobs=list(c.execute('SELECT * FROM jobs WHERE day=? ORDER BY position,id',(job['day'],))); st={x['k']:x['v'] for x in c.execute('SELECT * FROM settings')}; c.close()
  i=next(n for n,x in enumerate(jobs) if x['id']==job_id); prev=st.get('leave_home','') if i==0 else jobs[i-1]['finish']; nxt=st.get('return_home','') if i==len(jobs)-1 else jobs[i+1]['start']
  root=ET.parse(MASTER).getroot(); rec=root.find('record'); d=json.loads(job['details']); rec.set('name',f"{job['job_no']} {job['day'].replace('-','/')}")
- mapping={'Booking ID':d.get('Booking ID'),'Job No.':job['job_no'],'Job Number':job['job_no'],'Company':d.get('Company'),'Front Cover client':d.get('Company'),'Cust. Ref.':d.get('Cust. Ref.'),'Work Order':d.get('Cust. Ref.'),'Site Address':d.get('Site Address'),'Site Contact':d.get('Site Contact'),'Site Phone':d.get('Site Phone'),'Service':d.get('Service'),'Work Required':d.get('Work Required'),'Depart Time':prev,'Arrive Site':job['start'],'Depart Site':job['finish'],'Arrive Next':nxt,'A&A Resources':st.get('resources','Adam Freeman, Peter Bennett, RA25 TLZ'),'A&A Representative':st.get('representative','Adam Freeman'),'Lead Engineer':st.get('lead','Adam'),'Engineer 2':st.get('engineer2','Pete'),'RAMS Number ':st.get('rams','010203')}
+ long_date=datetime.strptime(job['day'],'%Y-%m-%d').strftime('%d %B %Y')
+ resource_text=d.get('A&A Resources') or st.get('resources','Adam Freeman, Peter Bennett, RA25 TLZ'); engineers=assigned_engineers(resource_text)
+ mapping={'Front Cover date':long_date,'Front Cover job no.':job['job_no'],'Front Cover client':d.get('Company'),'Booking ID':d.get('Booking ID'),'Job No.':job['job_no'],'Job Number':job['job_no'],'Division':'AM','Date':long_date,'Company':d.get('Company'),'Cust. Ref.':d.get('Cust. Ref.'),'Work Order':d.get('Cust. Ref.'),'Site Address':d.get('Site Address'),'Site Contact':d.get('Site Contact'),'Site Phone':d.get('Site Phone'),'Service':d.get('Service'),'Work Required':d.get('Work Required'),'Depart Time':prev,'Arrive Site':job['start'],'Depart Site':job['finish'],'Arrive Next':nxt,'A&A Resources':resource_text,'A&A Representative':d.get('A&A Representative') or (engineers[0] if engineers else ''),'Lead Engineer':engineers[0] if engineers else '','Engineer 2':engineers[1] if len(engineers)>1 else '','RAMS Number ':st.get('rams','010203')}
  for k,v in mapping.items(): set_occurrences(rec,k,v)
+ set_occurrences(rec,'Further Works Required','0'); set_occurrences(rec,'All Works Complete','0')
  for k in ['Do you have the correct documentation or permit for the task?','Do you understand the task?','Are you authorised & competent to carry out the task?','Are isolations in place?','Do you have the correct PPE and tools for the job?','Are calibrated items in date?','Have all vehicle checks been carried out?']: set_occurrences(rec,k,'Yes')
  set_occurrences(rec,'Are all  electrical equipment PAT test in date?','N/A'); set_occurrences(rec,'Vehicle logged','N/A'); set_occurrences(rec,'Any lessons for next time?','No'); set_occurrences(rec,'Has the work created any new hazards?','No')
+ hazard_names=['1. Slips, trips, falls on the same level','2. Falls from height','3. Falling/ flying objects','4. Chemicals/ Harmful substances','5. Heat/ fire/ explosion','6. Asphyxiation, drowning ','7. Risk to plant/ environment ','8. Contact with stationary objects ','9. Manual handling ','10. Stored energy ','11. Vehicle overloaded','12. Excavations ','13. Risk to you from other works','14. Confined space entry ','15. Dust','16. Fumes','17. Noise','18. Vibration','19. Electricity ','20. Asbestos ','21. Contamination/ pollution ','22. Poor lighting ','23. Adverse temperatures ','24. Adverse weather','25. Uncertified equipment ','26. Check risk to others from your work','27. Waterborne diseases (Weils disease)','28. Sharps/ needles/ cuts']
+ for n in hazard_names: set_occurrences(rec,n,'1' if n[:2].strip('. ') in {'1','2','3'} or n.startswith('19.') else '0')
+ set_occurrence_values(rec,'Hazard numbers',['1','2','3','19','','',''])
+ set_occurrence_values(rec,'Has ID',['Maintain a tidy work environment','Maintain equipment','Secure work area with barriers and defensive parking','Isolate and lock off','','',''])
+ set_occurrence_values(rec,'Remaining risk1',['Low','Low','Low','Low','','',''])
  buf=io.BytesIO(); ET.ElementTree(root).write(buf,encoding='windows-1252',xml_declaration=True); buf.seek(0)
  return send_file(buf,mimetype='text/xml',as_attachment=True,download_name=f"{job['job_no']}-prepared.xml")
 
