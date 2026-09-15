@@ -1,44 +1,104 @@
-# Job Pack Planner — initial Byte-Me version
+# Job Pack Planner
 
-Local, rules-based preparation of Forms Mobile Electrical Services Job Pack XML files. No AI service is used.
+A self-hosted day planner for preparing Forms Mobile Electrical Services Job Pack XML files from Booking Alert XML files.
 
-## Install on Unraid
+Import bookings, set arrival and departure times, and download a pre-filled XML pack for each job. The app uses fixed rules rather than an AI service. It runs with Flask, SQLite and Docker, and is set up for Unraid.
 
-1. Copy this folder to `/mnt/user/appdata/job-pack-planner` on Byte-Me.
-2. Open an Unraid terminal in that folder.
-3. Run `docker compose up -d --build`.
-4. Open `http://192.168.1.187:1976`.
+## Features
+
+- Import one or more booking XML files from Settings.
+- Scan a shared folder and its subfolders for bookings and completed Job Pack examples.
+- View bookings by date, inspect the work description and open a site's postcode in Google Maps.
+- Save job arrival and departure times, plus leave-home and return-home times.
+- Download a prepared XML file and copy its job number to the clipboard when the browser allows it.
+- Use engineers from each booking, with a configurable fallback.
+- Look up a nearby emergency hospital when exporting a pack.
+- Open the app in a standalone browser window on supported browsers.
+
+## Install with Docker on Unraid
+
+You need Docker with Docker Compose and a copy of this repository.
+
+1. Copy or clone the repository to `/mnt/user/appdata/job-pack-planner`.
+2. Create a folder for your booking XML files and completed Job Pack examples, such as `/mnt/user/JobPackPlanner`.
+3. In the repository folder, create a `.env` file containing:
+
+   ```env
+   JOB_PACK_SHARE_PATH=/mnt/user/JobPackPlanner
+   ```
+
+4. Open a terminal in the repository folder and run:
+
+   ```sh
+   docker compose up -d --build
+   ```
+
+5. Open `http://<server-ip>:1976` in your browser. For the Byte-Me installation, the existing address is `http://192.168.1.187:1976`.
+
+The Compose configuration mounts `./data` as `/data` and the configured import folder as `/imports`. If `JOB_PACK_SHARE_PATH` is omitted, imports use `./shared` beside the Compose file. After changing the path in `.env`, run `docker compose up -d` to apply it.
 
 ## First use
 
-1. Under **Forms Mobile template**, upload one of your completed Electrical Services Job Pack XML files. The app immediately empties every record value before saving it as the local master template.
-2. Import one or more small Booking Alert XML files.
-3. Select the booking date. Set **Leave home** at the top of the timeline, the job arrival/departure times, and **Return home** at the bottom, then press **Save day**.
-4. Press **Share prepared XML**. On Android this opens the native share sheet when supported; otherwise the file downloads.
-5. Open the prepared XML in Forms Mobile and complete findings, job status, photos and signatures normally.
+1. Put at least one completed Electrical Services Job Pack XML example in the configured shared folder. This is required before exporting a pack.
+2. Open **Settings → Scan shared folder now**. The app selects the most recently modified completed example and clears the first record's field text values before saving it as the master template.
+3. Add Booking Alert XML files to the shared folder and scan again, or use **Settings → Choose booking XML files** to import them manually.
+4. Return to the planner and select the booking date.
+5. Set **Leave home**, each job's **Arrive** and **Leave** times, and **Return home**. Press **Save day** before exporting.
+6. Press **Save XML** on a job. The browser downloads `<job-number>.xml` and attempts to copy the job number to the clipboard.
+7. Open the XML in Forms Mobile, review the pre-filled values, and complete the findings, job status, photos and signatures.
 
-The prepared pack copies the engineers from the booking's **A&A Resources** field. Vehicle registrations are ignored; the first two people become **Lead Engineer** and **Engineer 2**. It also applies the cover details, repeated job/date/address fields, common safety answers, N/A values and the standard hazard controls seen consistently in the completed examples.
+**Save XML** uses the last saved times; it does not save unsaved timeline edits. Leave-home and return-home times are shared settings across dates, while arrival and departure times are stored per job.
 
-The site/customer representative is set to **SM**. When a prepared XML is saved, the app uses the site postcode to make a best-effort lookup for the nearest OpenStreetMap hospital marked as providing emergency services. The result is cached locally; if the lookup is unavailable or has no suitable result, the field is set to **Hospital**.
+## Imports and templates
 
-## Shared folder import
+The shared-folder scanner checks files ending in `.xml` recursively. It treats the first record with at least 100 fields as a completed Job Pack example; files with fewer fields are passed to the booking importer. If several examples exist, the most recently modified one replaces the master template on each scan.
 
-The app can manually scan a specific Unraid share. Add this to the `.env` file beside `docker-compose.yml`:
+Bookings are matched by job number. Re-importing a booking updates its details and date while preserving its edited arrival time, departure time and position. Booking dates are read as `DD-MM-YYYY`; an unrecognised date falls back to the current date on the server.
 
-```env
-JOB_PACK_SHARE_PATH=/mnt/user/JobPackPlanner
-```
+The current Settings page provides booking upload and shared-folder scanning. Install the master template through the shared-folder scan.
 
-The scanner checks the configured share and all folders beneath it. It automatically recognises small Booking Alert XML files and full completed Job Pack XML examples, so no special folder structure or separate template upload is required. Open **Settings** and press **Scan shared folder now**. Existing jobs keep their edited timeline times when the same booking file is scanned again.
+Files are imported only when you upload them or press **Scan shared folder now**. Settings reads the folder to show file counts, but there is no automatic import, email integration, background watcher or scheduled task.
 
-There is no Outlook integration, Microsoft login, background watcher or scheduled task. Files are only read when you upload them or press the shared-folder scan button.
+## What the prepared XML contains
 
-## Important initial-version limitation
+The app fills matching template fields with:
 
-Test generated XML with Forms Mobile and the company workflow using a non-critical copy before relying on it. Forms Mobile compatibility is the next validation milestone. Route optimisation and detected office/collection stops are planned after XML round-trip compatibility is confirmed.
+- Job number, booking ID, client, customer reference, site address, contact information and work required.
+- The selected date and saved travel and site times. Travel times are derived from the previous job's departure and the next job's arrival, with home times used at the ends of the day.
+- Engineers from **A&A Resources**, or **Settings → Default resources** when that booking field is empty. Entries matching the supported UK vehicle-registration pattern are ignored; the first two recognised people supply first names for **Lead Engineer** and **Engineer 2**.
+- Fixed defaults, including division `AM`, site/customer representative `SM` and a default RAMS number of `010203`.
+- Preset safety answers, N/A values, hazard selections and controls.
 
-All data is stored in the local `data` directory. Do not expose port 1976 directly to the internet.
+These are fixed preparation rules, not an assessment of the work or site conditions. Review the defaults in Forms Mobile for each job.
 
-## Install as a Chrome app
+### Hospital lookup
 
-Open the HTTPS address in Chrome, use the install icon in the address bar (or **Menu → Cast, save and share → Install page as app**) and choose **Install**. The installed app uses its own Job Pack Planner icon, standalone window, matching splash colour and full branded header.
+On export, the app sends the site postcode to Postcodes.io, then queries OpenStreetMap through the Overpass API for emergency hospital locations within 80 km. It selects the nearest named result by straight-line distance and includes its postcode when available.
+
+Successful results are cached locally by site postcode. If the lookup fails or finds no suitable result, the field contains `Hospital`. The result is a best-effort suggestion and should be checked for the job.
+
+## Data and access
+
+The host's `data` folder contains:
+
+| File | Contents |
+| --- | --- |
+| `planner.db` | Bookings, saved times, settings and cached hospital results |
+| `master.xml` | The prepared master template |
+
+Back up this folder to preserve the planner's data. Original files in the import folder are read without being changed.
+
+The app has no built-in sign-in. Use it on a trusted network and do not expose port 1976 directly to the internet. XML preparation runs on your server; hospital lookup requires internet access, and postcode links open Google Maps.
+
+## Install as a browser app
+
+For a remote server, use an HTTPS address configured separately from the supplied Docker setup. Open it in a supported browser and use the browser's install option when available.
+
+The manifest provides the app name, icons, colours and standalone display. The service worker caches static assets only; the planner still needs a connection to the server to load bookings, save changes and export XML.
+
+## Current limitations
+
+- Forms Mobile XML round-trip compatibility still needs validation with the company workflow. Test a non-critical copy before relying on generated packs.
+- Route optimisation and automatic office or collection stops are not implemented.
+- Safety answers and hazard controls are presets that require review for each job.
+- Browser clipboard access depends on browser support and permissions; XML download can still work if copying the job number fails.
