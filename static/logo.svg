@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 72" role="img" aria-label="Job Pack Planner">
+  <rect x="2" y="2" width="68" height="68" rx="17" fill="#087f6d"/>
+  <path d="M22 15h19l13 13v29H22Z" fill="#fff"/>
+  <path d="M41 15v13h13" fill="#ccece5" stroke="#087f6d" stroke-width="3" stroke-linejoin="round"/>
+  <path d="m28 42 7 7 14-17" fill="none" stroke="#087f6d" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="88" y="34" fill="#ffffff" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="25" font-weight="800">Job Pack</text>
+  <text x="88" y="58" fill="#9fc8c1" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="19" font-weight="650" letter-spacing="2.1">PLANNER</text>
+</svg>
