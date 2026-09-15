@@ -1,7 +1,9 @@
 from flask import Flask, render_template, request, jsonify, send_file, send_from_directory
 from pathlib import Path
 from datetime import datetime
-import sqlite3, xml.etree.ElementTree as ET, io, re, json, os
+import sqlite3, xml.etree.ElementTree as ET, io, re, json, os, math
+from urllib.parse import quote, urlencode
+from urllib.request import Request, urlopen
 
 app=Flask(__name__)
 DATA=Path('/data'); DATA.mkdir(exist_ok=True)
@@ -36,6 +38,34 @@ def assigned_engineers(resource_text):
   first_name=person.split()[0]
   short.append(preferred.get(first_name.lower(),first_name))
  return short
+
+def nearest_ae(site_postcode):
+ fallback='Hospital'; clean=re.sub(r'\s+','',site_postcode or '').upper()
+ if not clean: return fallback
+ cache_key=f'hospital:{clean}'; c=db(); row=c.execute('SELECT v FROM settings WHERE k=?',(cache_key,)).fetchone(); c.close()
+ if row: return row['v']
+ try:
+  headers={'User-Agent':'JobPackPlanner/1.0'}
+  geo=json.loads(urlopen(Request(f'https://api.postcodes.io/postcodes/{quote(clean)}',headers=headers),timeout=6).read())['result']
+  lat=float(geo['latitude']); lon=float(geo['longitude'])
+  query=f'''[out:json][timeout:12];(
+   nwr["amenity"="hospital"]["emergency"="yes"](around:80000,{lat},{lon});
+   nwr["healthcare"="hospital"]["emergency"="yes"](around:80000,{lat},{lon});
+   nwr["emergency"="emergency_ward_entrance"](around:80000,{lat},{lon});
+  );out center tags;'''
+  req=Request('https://overpass-api.de/api/interpreter',data=urlencode({'data':query}).encode(),headers={**headers,'Content-Type':'application/x-www-form-urlencoded'})
+  elements=json.loads(urlopen(req,timeout=15).read()).get('elements',[]); choices=[]
+  for element in elements:
+   tags=element.get('tags',{}); name=tags.get('name') or tags.get('operator')
+   point=element.get('center',element); elat=point.get('lat'); elon=point.get('lon')
+   if not name or elat is None or elon is None: continue
+   a=math.radians(float(elat)-lat); b=math.radians(float(elon)-lon)
+   h=math.sin(a/2)**2+math.cos(math.radians(lat))*math.cos(math.radians(float(elat)))*math.sin(b/2)**2
+   distance=6371*2*math.asin(min(1,math.sqrt(h))); hospital_postcode=tags.get('addr:postcode','').strip()
+   choices.append((distance,f'{name}, {hospital_postcode}' if hospital_postcode else name))
+  if not choices: return fallback
+  value=min(choices,key=lambda item:item[0])[1]; c=db(); c.execute('INSERT OR REPLACE INTO settings(k,v) VALUES(?,?)',(cache_key,value)); c.commit(); c.close(); return value
+ except Exception: return fallback
 
 def import_booking(raw):
  root=ET.fromstring(raw); rec=root.find('record')
@@ -152,7 +182,7 @@ def export(job_id):
  root=ET.parse(MASTER).getroot(); rec=root.find('record'); d=json.loads(job['details']); rec.set('name',f"{job['job_no']} {job['day'].replace('-','/')}")
  long_date=datetime.strptime(job['day'],'%Y-%m-%d').strftime('%d %B %Y')
  resource_text=d.get('A&A Resources') or st.get('resources','Adam Freeman, Peter Bennett, RA25 TLZ'); engineers=assigned_engineers(resource_text)
- mapping={'Front Cover date':long_date,'Front Cover job no.':job['job_no'],'Front Cover client':d.get('Company'),'Booking ID':d.get('Booking ID'),'Job No.':job['job_no'],'Job Number':job['job_no'],'Division':'AM','Date':long_date,'Company':d.get('Company'),'Cust. Ref.':d.get('Cust. Ref.'),'Work Order':d.get('Cust. Ref.'),'Site Address':d.get('Site Address'),'Site Contact':d.get('Site Contact'),'Site Phone':d.get('Site Phone'),'Service':d.get('Service'),'Work Required':d.get('Work Required'),'Depart Time':prev,'Arrive Site':job['start'],'Depart Site':job['finish'],'Arrive Next':nxt,'A&A Resources':resource_text,'A&A Representative':d.get('A&A Representative') or (engineers[0] if engineers else ''),'Lead Engineer':engineers[0] if engineers else '','Engineer 2':engineers[1] if len(engineers)>1 else '','RAMS Number ':st.get('rams','010203')}
+ mapping={'Front Cover date':long_date,'Front Cover job no.':job['job_no'],'Front Cover client':d.get('Company'),'Booking ID':d.get('Booking ID'),'Job No.':job['job_no'],'Job Number':job['job_no'],'Division':'AM','Date':long_date,'Company':d.get('Company'),'Cust. Ref.':d.get('Cust. Ref.'),'Work Order':d.get('Cust. Ref.'),'Site Address':d.get('Site Address'),'Site Contact':d.get('Site Contact'),'Site Phone':d.get('Site Phone'),'Service':d.get('Service'),'Work Required':d.get('Work Required'),'Depart Time':prev,'Arrive Site':job['start'],'Depart Site':job['finish'],'Arrive Next':nxt,'A&A Resources':resource_text,'A&A Representative':d.get('A&A Representative') or (engineers[0] if engineers else ''),'Customer Representative':'SM','Site Representative':'SM','A&E Hospital location & postcode':nearest_ae(job['postcode'] or postcode(d.get('Site Address',''))),'Lead Engineer':engineers[0] if engineers else '','Engineer 2':engineers[1] if len(engineers)>1 else '','RAMS Number ':st.get('rams','010203')}
  for k,v in mapping.items(): set_occurrences(rec,k,v)
  set_occurrences(rec,'Further Works Required','0'); set_occurrences(rec,'All Works Complete','0')
  for k in ['Do you have the correct documentation or permit for the task?','Do you understand the task?','Are you authorised & competent to carry out the task?','Are isolations in place?','Do you have the correct PPE and tools for the job?','Are calibrated items in date?','Have all vehicle checks been carried out?']: set_occurrences(rec,k,'Yes')
