@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Job Pack Planner">
+  <rect width="512" height="512" rx="112" fill="#102f3e"/>
+  <rect x="84" y="72" width="344" height="368" rx="54" fill="#087f6d"/>
+  <path d="M164 126h132l68 68v188c0 18-14 32-32 32H164c-18 0-32-14-32-32V158c0-18 14-32 32-32Z" fill="#fff"/>
+  <path d="M296 126v68h68" fill="#ccece5"/>
+  <path d="M296 126v68h68" fill="none" stroke="#087f6d" stroke-width="14" stroke-linejoin="round"/>
+  <circle cx="190" cy="244" r="13" fill="#102f3e"/>
+  <circle cx="190" cy="300" r="13" fill="#102f3e"/>
+  <path d="M190 257v30" stroke="#9ccac2" stroke-width="8" stroke-linecap="round"/>
+  <path d="m228 300 35 35 72-84" fill="none" stroke="#087f6d" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
