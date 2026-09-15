@@ -1,0 +1,10 @@
+.env
+data/
+__pycache__/
+*.pyc
+*.xml
+*.fmc
+*.pdf
+*.zip
+ms-token-cache.json
+planner.db
