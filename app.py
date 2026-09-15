@@ -10,7 +10,7 @@ app=Flask(__name__)
 DATA=Path('/data'); DATA.mkdir(exist_ok=True)
 DB=DATA/'planner.db'; MASTER=DATA/'master.xml'
 TOKEN_CACHE=DATA/'ms-token-cache.json'; OUTLOOK={'state':'disconnected','message':'','flow':None}
-SCOPES=['Mail.Read','offline_access']
+SCOPES=['Mail.Read']
 
 def db():
  c=sqlite3.connect(DB); c.row_factory=sqlite3.Row
