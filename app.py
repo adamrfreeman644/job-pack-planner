@@ -61,20 +61,32 @@ def install_master(raw):
  ET.ElementTree(root).write(MASTER,encoding='windows-1252',xml_declaration=True)
 
 def scan_share_folder():
- bookings=SHARE/'bookings'; templates=SHARE/'template'; added=[]; errors=[]; template_name=''
- if bookings.exists():
-  for path in sorted(bookings.glob('*.xml')):
-   try:
-    job=import_booking(path.read_bytes())
+ added=[]; errors=[]; template_name=''; templates=[]
+ paths=sorted(SHARE.rglob('*.xml')) if SHARE.exists() else []
+ for path in paths:
+  try:
+   raw=path.read_bytes(); root=ET.fromstring(raw); rec=root.find('record')
+   if rec is None: raise ValueError('No record found')
+   if len(rec.findall('field'))>=100: templates.append((path.stat().st_mtime,path,raw))
+   else:
+    job=import_booking(raw)
     if job: added.append(job)
-    else: errors.append(f'{path.name}: not a booking XML')
-   except Exception: errors.append(f'{path.name}: could not be read')
- if templates.exists():
-  candidates=sorted(templates.glob('*.xml'),key=lambda p:p.stat().st_mtime,reverse=True)
-  for path in candidates:
-   try: install_master(path.read_bytes()); template_name=path.name; break
-   except Exception: continue
+    else: errors.append(f'{path.name}: not a recognised booking')
+  except Exception: errors.append(f'{path.name}: could not be read')
+ if templates:
+  _,path,raw=max(templates,key=lambda item:item[0]); install_master(raw); template_name=str(path.relative_to(SHARE))
  return {'bookings':added,'template':template_name,'errors':errors,'path':str(SHARE)}
+
+def share_inventory():
+ bookings=0; templates=0; errors=0
+ for path in SHARE.rglob('*.xml') if SHARE.exists() else []:
+  try:
+   rec=ET.parse(path).getroot().find('record'); count=len(rec.findall('field')) if rec is not None else 0
+   if count>=100: templates+=1
+   elif count: bookings+=1
+   else: errors+=1
+  except Exception: errors+=1
+ return bookings,templates,errors
 
 @app.get('/')
 def home(): return render_template('index.html')
@@ -105,7 +117,8 @@ def master():
 
 @app.get('/api/folder/status')
 def folder_status():
- return jsonify(path=str(SHARE),available=SHARE.exists(),bookings=len(list((SHARE/'bookings').glob('*.xml'))) if (SHARE/'bookings').exists() else 0,templates=len(list((SHARE/'template').glob('*.xml'))) if (SHARE/'template').exists() else 0)
+ bookings,templates,errors=share_inventory()
+ return jsonify(path=str(SHARE),available=SHARE.exists(),bookings=bookings,templates=templates,errors=errors,master=MASTER.exists())
 
 @app.post('/api/folder/scan')
 def folder_scan(): return jsonify(scan_share_folder())
