@@ -27,14 +27,7 @@ The app can manually scan a specific Unraid share. Add this to the `.env` file b
 JOB_PACK_SHARE_PATH=/mnt/user/JobPackPlanner
 ```
 
-Create these folders inside that share:
-
-```text
-/mnt/user/JobPackPlanner/bookings
-/mnt/user/JobPackPlanner/template
-```
-
-Put Booking Alert XML files in `bookings` and a completed Job Pack XML in `template`. Open **Settings** and press **Scan shared folder now**. Existing jobs keep their edited timeline times when the same booking file is scanned again.
+The scanner checks the configured share and all folders beneath it. It automatically recognises small Booking Alert XML files and full completed Job Pack XML examples, so no special folder structure or separate template upload is required. Open **Settings** and press **Scan shared folder now**. Existing jobs keep their edited timeline times when the same booking file is scanned again.
 
 There is no Outlook integration, Microsoft login, background watcher or scheduled task. Files are only read when you upload them or press the shared-folder scan button.
 
