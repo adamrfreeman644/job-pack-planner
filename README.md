@@ -13,20 +13,33 @@ Local, rules-based preparation of Forms Mobile Electrical Services Job Pack XML 
 
 1. Under **Forms Mobile template**, upload one of your completed Electrical Services Job Pack XML files. The app immediately empties every record value before saving it as the local master template.
 2. Import one or more small Booking Alert XML files.
-3. Select the booking date, enter leave-home/return-home and job arrival/departure times, then press **Save times**.
+3. Select the booking date. Set **Leave home** at the top of the timeline, the job arrival/departure times, and **Return home** at the bottom, then press **Save day**.
 4. Press **Share prepared XML**. On Android this opens the native share sheet when supported; otherwise the file downloads.
 5. Open the prepared XML in Forms Mobile and complete findings, job status, photos and signatures normally.
 
 The prepared pack copies the engineers from the booking's **A&A Resources** field. Vehicle registrations are ignored; the first two people become **Lead Engineer** and **Engineer 2**. It also applies the cover details, repeated job/date/address fields, common safety answers, N/A values and the standard hazard controls seen consistently in the completed examples.
 
+## Shared folder import
+
+The app can manually scan a specific Unraid share. Add this to the `.env` file beside `docker-compose.yml`:
+
+```env
+JOB_PACK_SHARE_PATH=/mnt/user/JobPackPlanner
+```
+
+Create these folders inside that share:
+
+```text
+/mnt/user/JobPackPlanner/bookings
+/mnt/user/JobPackPlanner/template
+```
+
+Put Booking Alert XML files in `bookings` and a completed Job Pack XML in `template`. Open **Settings** and press **Scan shared folder now**. Existing jobs keep their edited timeline times when the same booking file is scanned again.
+
+There is no Outlook integration, Microsoft login, background watcher or scheduled task. Files are only read when you upload them or press the shared-folder scan button.
+
 ## Important initial-version limitation
 
-Test generated XML with Forms Mobile and the company workflow using a non-critical copy before relying on it. Forms Mobile compatibility is the next validation milestone. Outlook auto-import, route optimisation and detected office/collection stops are planned after XML round-trip compatibility is confirmed.
+Test generated XML with Forms Mobile and the company workflow using a non-critical copy before relying on it. Forms Mobile compatibility is the next validation milestone. Route optimisation and detected office/collection stops are planned after XML round-trip compatibility is confirmed.
 
 All data is stored in the local `data` directory. Do not expose port 1976 directly to the internet.
-
-## Booking collection schedule
-
-The Outlook collection time is fixed at **19:00 Europe/London**, with manual XML import always available. Duplicate job numbers replace the earlier imported copy instead of creating duplicate timeline entries.
-
-To enable Outlook, provide `MS_CLIENT_ID` in a `.env` file beside `docker-compose.yml`. This must be the client ID of a Microsoft Entra public-client application configured for delegated Microsoft Graph `Mail.Read`. `MS_TENANT_ID` may be supplied as well; it defaults to `organizations`. Restart the compose project and press **Connect Outlook**. Microsoft opens its normal device-login page and uses the normal company MFA process. If Microsoft returns an administrator-consent requirement, the app stops immediately and displays a warning without downloading messages.
