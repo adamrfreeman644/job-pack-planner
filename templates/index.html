@@ -3,12 +3,20 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#102f3e">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Job Packs">
+  <link rel="manifest" href="/static/manifest.webmanifest">
+  <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
   <title>Job Pack Planner</title>
   <style>
     :root{--ink:#152b36;--navy:#102f3e;--teal:#087f6d;--teal-soft:#e1f3ef;--bg:#edf2f3;--card:#fff;--line:#d7e2e5;--muted:#657984;--blue:#276f98}
     *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
     header{height:70px;background:var(--navy);color:#fff;padding:0 max(18px,5vw);display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:5;box-shadow:0 3px 16px #102f3e25}
-    .logo{width:40px;height:40px;display:grid;place-items:center;background:var(--teal);border-radius:11px;font-weight:900}.brand{font-size:1.1rem;font-weight:800}
+    .brand-home{display:flex;align-items:center;text-decoration:none}.wordmark{display:block;width:215px;height:42px}.app-mark{display:none;width:42px;height:42px}
     .date{margin-left:auto;min-width:185px;height:46px;background:#173d4e;color:#fff;border:1px solid #6f8995;border-radius:11px;padding:10px 13px;font:inherit;font-size:1rem;font-weight:750;color-scheme:dark;cursor:pointer}
     .icon-link{display:grid;place-items:center;width:40px;height:40px;color:#fff;text-decoration:none;border:1px solid #577482;border-radius:10px;font-size:20px}
     main{max-width:900px;margin:0 auto;padding:22px 18px}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 28px #1939460d;overflow:hidden}
@@ -20,11 +28,11 @@
     .times{display:flex;gap:9px;margin-top:11px}.times label{flex:1;background:#f3f7f8;padding:7px 9px;border-radius:8px;font-size:.73rem;color:var(--muted)}.times input{display:block;border:0;background:transparent;width:100%;font:inherit;font-weight:850;color:var(--ink)}
     .actions{display:flex;gap:8px;margin-top:10px}.actions button{flex:1}.description{display:none;background:#f5f8f9;border-radius:8px;padding:10px;margin-top:9px;color:#3f5661}.description.open{display:block}
     .empty{margin:0 0 12px 36px;border:1px dashed #b7c8ce;border-radius:12px;padding:17px;text-align:center;color:var(--muted)}.toast{position:fixed;bottom:18px;left:50%;transform:translate(-50%,100px);background:var(--ink);color:#fff;padding:11px 15px;border-radius:9px;transition:.2s;z-index:10}.toast.on{transform:translate(-50%,0)}
-    @media(max-width:780px){header{padding:0 12px}.brand{display:none}main{padding:12px}.card{border-radius:13px}.event{grid-template-columns:24px minmax(0,1fr);gap:6px}.timeline{padding:13px 10px}.event-card{padding:11px}.actions,.times{flex-direction:column}.empty{margin-left:30px}.date{min-width:165px;max-width:185px;height:48px;font-size:1rem}}
+    @media(max-width:780px){header{padding:0 12px;gap:9px}.wordmark{display:none}.app-mark{display:block}main{padding:12px}.card{border-radius:13px}.event{grid-template-columns:24px minmax(0,1fr);gap:6px}.timeline{padding:13px 10px}.event-card{padding:11px}.actions,.times{flex-direction:column}.empty{margin-left:30px}.date{min-width:155px;max-width:175px;height:48px;font-size:1rem}}
   </style>
 </head>
 <body>
-  <header><span class="logo">JP</span><span class="brand">Job Pack Planner</span><input class="date" type="date" id="day"><a class="icon-link" href="/settings" aria-label="Settings">⚙</a></header>
+  <header><a class="brand-home" href="/" aria-label="Job Pack Planner"><img class="wordmark" src="/static/logo.svg" alt="Job Pack Planner"><img class="app-mark" src="/static/icon.svg" alt=""></a><input class="date" type="date" id="day"><a class="icon-link" href="/settings" aria-label="Settings">⚙</a></header>
   <main>
     <section class="card">
       <div class="card-head"><h1>Day timeline</h1><button class="save" id="save">Save day</button></div>
@@ -46,7 +54,7 @@
     function updateSummary(){const jobs=all.filter(j=>j.day===day.value);summary.textContent=`${jobs.length} job${jobs.length===1?'':'s'} · ${document.querySelector('#leave').value} leave · ${document.querySelector('#return').value} home`}
     async function share(id,name){const r=await fetch('/api/export/'+id);if(!r.ok){pop((await r.json()).error);return}const blob=await r.blob(),file=new File([blob],name+'-prepared.xml',{type:'text/xml'});if(navigator.canShare?.({files:[file]}))await navigator.share({files:[file],title:name+' prepared job pack'});else{const a=document.createElement('a');a.href=URL.createObjectURL(file);a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}}
     document.querySelector('#save').onclick=async()=>{const jobs=all.filter(j=>j.day===day.value);settings.leave_home=document.querySelector('#leave').value;settings.return_home=document.querySelector('#return').value;await fetch('/api/save',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({day:day.value,jobs,settings:{leave_home:settings.leave_home,return_home:settings.return_home}})});pop('Day saved');render()};
-    day.onchange=render;load();
+    day.onchange=render;load();if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js'));
   </script>
 </body>
 </html>
