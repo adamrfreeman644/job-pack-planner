@@ -1,0 +1,25 @@
+services:
+  job-pack-planner:
+    build: .
+    container_name: job-pack-planner
+    ports:
+      - "1976:1976"
+    volumes:
+      - ./data:/data
+    environment:
+      TZ: Europe/London
+      AUTO_IMPORT_TIME: "19:00"
+      MS_CLIENT_ID: "${MS_CLIENT_ID:-}"
+      MS_TENANT_ID: "${MS_TENANT_ID:-organizations}"
+    restart: unless-stopped
+  job-pack-planner-scheduler:
+    build: .
+    container_name: job-pack-planner-scheduler
+    command: ["python","scheduler.py"]
+    volumes:
+      - ./data:/data
+    environment:
+      TZ: Europe/London
+      MS_CLIENT_ID: "${MS_CLIENT_ID:-}"
+      MS_TENANT_ID: "${MS_TENANT_ID:-organizations}"
+    restart: unless-stopped
