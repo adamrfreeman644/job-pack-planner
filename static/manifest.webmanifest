@@ -1,7 +1,7 @@
 {
   "name": "Job Pack Planner",
   "short_name": "Job Packs",
-  "description": "Prepare and share Forms Mobile job pack XML files.",
+  "description": "Plan daily bookings and prepare Forms Mobile Electrical Services Job Pack XML files.",
   "id": "/",
   "start_url": "/",
   "scope": "/",
