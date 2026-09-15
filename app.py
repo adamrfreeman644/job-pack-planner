@@ -163,7 +163,7 @@ def export(job_id):
  set_occurrence_values(rec,'Has ID',['Maintain a tidy work environment','Maintain equipment','Secure work area with barriers and defensive parking','Isolate and lock off','','',''])
  set_occurrence_values(rec,'Remaining risk1',['Low','Low','Low','Low','','',''])
  buf=io.BytesIO(); ET.ElementTree(root).write(buf,encoding='windows-1252',xml_declaration=True); buf.seek(0)
- return send_file(buf,mimetype='text/xml',as_attachment=True,download_name=f"{job['job_no']}-prepared.xml")
+ return send_file(buf,mimetype='application/xml',as_attachment=True,download_name=f"{job['job_no']}-prepared.xml")
 
 @app.delete('/api/jobs/<int:job_id>')
 def delete(job_id):
