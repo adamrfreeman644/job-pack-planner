@@ -184,6 +184,7 @@ def export(job_id):
  resource_text=d.get('A&A Resources') or st.get('resources','Adam Freeman, Peter Bennett, RA25 TLZ'); engineers=assigned_engineers(resource_text)
  mapping={'Front Cover date':long_date,'Front Cover job no.':job['job_no'],'Front Cover client':d.get('Company'),'Booking ID':d.get('Booking ID'),'Job No.':job['job_no'],'Job Number':job['job_no'],'Division':'AM','Date':long_date,'Company':d.get('Company'),'Cust. Ref.':d.get('Cust. Ref.'),'Work Order':d.get('Cust. Ref.'),'Site Address':d.get('Site Address'),'Site Contact':d.get('Site Contact'),'Site Phone':d.get('Site Phone'),'Service':d.get('Service'),'Work Required':d.get('Work Required'),'Depart Time':prev,'Arrive Site':job['start'],'Depart Site':job['finish'],'Arrive Next':nxt,'A&A Resources':resource_text,'A&A Representative':d.get('A&A Representative') or (engineers[0] if engineers else ''),'Customer Representative':'SM','Site Representative':'SM','A&E Hospital location & postcode':nearest_ae(job['postcode'] or postcode(d.get('Site Address',''))),'Lead Engineer':engineers[0] if engineers else '','Engineer 2':engineers[1] if len(engineers)>1 else '','RAMS Number ':st.get('rams','010203')}
  for k,v in mapping.items(): set_occurrences(rec,k,v)
+ set_occurrence_values(rec,'Customer ',['SM',''])
  set_occurrences(rec,'Further Works Required','0'); set_occurrences(rec,'All Works Complete','0')
  for k in ['Do you have the correct documentation or permit for the task?','Do you understand the task?','Are you authorised & competent to carry out the task?','Are isolations in place?','Do you have the correct PPE and tools for the job?','Are calibrated items in date?','Have all vehicle checks been carried out?']: set_occurrences(rec,k,'Yes')
  set_occurrences(rec,'Are all  electrical equipment PAT test in date?','N/A'); set_occurrences(rec,'Vehicle logged','N/A'); set_occurrences(rec,'Any lessons for next time?','No'); set_occurrences(rec,'Has the work created any new hazards?','No')
@@ -193,7 +194,7 @@ def export(job_id):
  set_occurrence_values(rec,'Has ID',['Maintain a tidy work environment','Maintain equipment','Secure work area with barriers and defensive parking','Isolate and lock off','','',''])
  set_occurrence_values(rec,'Remaining risk1',['Low','Low','Low','Low','','',''])
  buf=io.BytesIO(); ET.ElementTree(root).write(buf,encoding='windows-1252',xml_declaration=True); buf.seek(0)
- return send_file(buf,mimetype='application/xml',as_attachment=True,download_name=f"{job['job_no']}-prepared.xml")
+ return send_file(buf,mimetype='application/xml',as_attachment=True,download_name=f"{job['job_no']}.xml")
 
 @app.delete('/api/jobs/<int:job_id>')
 def delete(job_id):
