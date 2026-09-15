@@ -14,13 +14,8 @@
       <label class="drop"><strong>Choose booking XML files</strong>Tap to browse<input id="files" type="file" accept=".xml,text/xml" multiple></label>
     </section>
     <section class="card">
-      <h2>Forms Mobile template</h2><p>Install a completed Job Pack XML once. Its answers, photos and signatures are cleared before it is stored.</p>
-      <label class="drop"><strong>Choose completed Job Pack XML</strong>Tap to browse<input id="master" type="file" accept=".xml,text/xml"></label>
-      <div class="status" id="masterState">Checking template…</div>
-    </section>
-    <section class="card">
       <h2>Shared folder import</h2><p>The app only scans this folder when you press the button. It does not monitor email or run on a schedule.</p>
-      <ul class="folders"><li><code>bookings</code> — booking XML files</li><li><code>template</code> — completed Job Pack XML</li></ul>
+      <p class="help">All folders below the configured share are checked. Small XML files are treated as bookings; completed Job Pack XML files are automatically used as the blank form template.</p>
       <div class="status" id="folderState">Checking shared folder…</div>
       <button class="wide" id="scan">Scan shared folder now</button>
     </section>
@@ -32,10 +27,9 @@
   </main>
   <div class="toast" id="toast"></div>
   <script>
-    const masterState=document.querySelector('#masterState'),folderState=document.querySelector('#folderState'),resources=document.querySelector('#resources');
+    const folderState=document.querySelector('#folderState'),resources=document.querySelector('#resources');
     function pop(text){const t=document.querySelector('#toast');t.textContent=text;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2200)}
-    async function load(){const state=await fetch('/api/state').then(r=>r.json()),folder=await fetch('/api/folder/status').then(r=>r.json());masterState.textContent=state.master?'Template installed ✓':'No template installed';resources.value=state.settings.resources||'Adam Freeman, Peter Bennett, RA25 TLZ';folderState.textContent=folder.available?`${folder.path} · ${folder.bookings} booking file${folder.bookings===1?'':'s'} · ${folder.templates} template file${folder.templates===1?'':'s'}`:'Shared folder is not available. Check the Docker volume setting.'}
-    document.querySelector('#master').onchange=async event=>{const data=new FormData();data.append('file',event.target.files[0]);const r=await fetch('/api/master',{method:'POST',body:data}),x=await r.json();if(r.ok)pop('Template installed');else pop(x.error||'Could not read template');event.target.value='';load()};
+    async function load(){const state=await fetch('/api/state').then(r=>r.json()),folder=await fetch('/api/folder/status').then(r=>r.json());resources.value=state.settings.resources||'Adam Freeman, Peter Bennett, RA25 TLZ';folderState.textContent=folder.available?`${folder.path} · ${folder.bookings} booking file${folder.bookings===1?'':'s'} · ${folder.templates} completed example${folder.templates===1?'':'s'} · ${folder.master?'template ready':'scan needed'}`:'Shared folder is not available. Check the Docker volume setting.'}
     document.querySelector('#files').onchange=async event=>{const data=new FormData();[...event.target.files].forEach(file=>data.append('files',file));const x=await fetch('/api/import',{method:'POST',body:data}).then(r=>r.json());pop(`${x.added.length} booking${x.added.length===1?'':'s'} imported`);event.target.value=''};
     document.querySelector('#scan').onclick=async()=>{folderState.textContent='Scanning…';const x=await fetch('/api/folder/scan',{method:'POST'}).then(r=>r.json());pop(`${x.bookings.length} booking file${x.bookings.length===1?'':'s'} read${x.template?' · template installed':''}`);load()};
     document.querySelector('#save').onclick=async()=>{await fetch('/api/save',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({day:'',jobs:[],settings:{resources:resources.value}})});pop('Fallback saved')};load();
