@@ -17,6 +17,8 @@ Local, rules-based preparation of Forms Mobile Electrical Services Job Pack XML 
 4. Press **Share prepared XML**. On Android this opens the native share sheet when supported; otherwise the file downloads.
 5. Open the prepared XML in Forms Mobile and complete findings, job status, photos and signatures normally.
 
+The prepared pack copies the engineers from the booking's **A&A Resources** field. Vehicle registrations are ignored; the first two people become **Lead Engineer** and **Engineer 2**. It also applies the cover details, repeated job/date/address fields, common safety answers, N/A values and the standard hazard controls seen consistently in the completed examples.
+
 ## Important initial-version limitation
 
 Test generated XML with Forms Mobile and the company workflow using a non-critical copy before relying on it. Forms Mobile compatibility is the next validation milestone. Outlook auto-import, route optimisation and detected office/collection stops are planned after XML round-trip compatibility is confirmed.
