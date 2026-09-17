@@ -43,6 +43,7 @@
       const save = event.querySelector('[data-save]'); if (!save) return;
       const id = Number(save.dataset.save), title = event.querySelector('.event-title');
       event.dataset.routeId = id; event.draggable = true;
+      event.querySelector('.route-leg')?.remove();
       if (!title.querySelector('.reorder-controls')) {
         const controls = document.createElement('span'); controls.className = 'reorder-controls';
         controls.innerHTML = `<button type="button" data-move="-1" aria-label="Move job earlier">↑</button><button type="button" data-move="1" aria-label="Move job later">↓</button><button type="button" data-lock aria-label="Lock job position" aria-pressed="${locks.has(id)}">${locks.has(id)?'🔒':'🔓'}</button><span class="drag-handle" title="Drag to reorder">⠿</span>`;
@@ -55,6 +56,7 @@
         event.querySelector('.event-card').prepend(label);
       }
     });
+    summary.textContent=summary.textContent.replace(/ · route \d+ min \/ [\d.]+ miles$/,'');
     if (routeResult) summary.textContent += ` · route ${routeResult.duration_minutes} min / ${routeResult.distance_miles} miles`;
   }
   new MutationObserver(() => { if (!timeline.dataset.enhancing) { timeline.dataset.enhancing='1'; enhance(); delete timeline.dataset.enhancing; } }).observe(timeline,{childList:true});
