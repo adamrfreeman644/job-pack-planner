@@ -17,7 +17,7 @@ Import bookings, set arrival and departure times, and download a pre-filled XML 
 - View Immich photos taken during a job in a clean, white fullscreen viewer.
 - Reorder a day by dragging job cards or using mobile-friendly up/down controls.
 - Open the current day as a multi-stop Google Maps route without an API key.
-- Optionally optimise job order with Google Routes, preserving locked appointments and showing driving-time warnings.
+- Plan a day with OpenRouteService using least-driving or furthest-first ordering, pickups/drop-offs and a full-screen map preview.
 
 ## Install with Docker on Unraid
 
@@ -83,19 +83,20 @@ Successful results are cached locally by site postcode. If the lookup fails or f
 
 ## Day route planning
 
-Every job card has up/down controls and a drag handle. Change the order, then press **Save day** to keep it. The lock button keeps an appointment in its current slot when automatic route planning is used. **Undo** restores the order that existed immediately before the latest manual move or automatic plan.
+Every job card has up/down controls and a drag handle. Change the order manually and press **Save day**, or press **Plan route** for the full-screen planner.
 
-**Open route** sends the currently displayed order to Google Maps. It works without a Google API key. Set **Settings → Day route planning → Home or start address** to make the route start and finish at home; otherwise the first and last jobs are used.
+The daily route planner offers **Least driving** and **Furthest first** modes. Pickup and drop-off entries can hold a colleague's name plus an address or postcode. They are saved for that date and included in routing, but do not create Job Packs. Locked job cards remain in their existing slots. Review the map, ordered stops, mileage and estimated driving time, then press **Save and apply route**.
 
-For automatic optimisation:
+Automatic planning uses the free OpenRouteService public API:
 
-1. Create a Google Cloud project with billing enabled.
-2. Enable the **Routes API**.
-3. Create an API key restricted to the Routes API and, where practical, to the server's public IP.
-4. Save the key under **Settings → Day route planning**.
-5. Press **Plan route** on the planner.
+1. Create an account at **openrouteservice.org**.
+2. Create an API key in its dashboard.
+3. Save your home/start address and key under **Settings → Day route planning**.
+4. Press **Plan route**, choose a mode, add any collections and press **Arrange route**.
 
-The key is stored in `planner.db`, is excluded from `/api/state`, and is used only by the server. Automatic planning supports up to 25 jobs. It returns the suggested order, total drive time and distance, per-leg figures, and warnings when the saved gap between jobs is shorter than the estimated drive. Traffic and roads change, so review the suggestion before pressing **Save day**.
+The key stays in `planner.db` and is excluded from browser state. Geocoded locations are cached locally to reduce API use. A route supports up to 25 combined jobs, pickups and drop-offs.
+
+**Open route** sends the saved order to the normal Google Maps website/app. Google is used only for navigation, so no Google API key or billing account is required.
 
 ## Job photos with Immich
 
