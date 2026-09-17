@@ -17,6 +17,11 @@
  const planButton=document.getElementById('plan-route'), fullscreenButton=document.getElementById('route-fullscreen'), modal=document.getElementById('route-modal'), stopList=document.getElementById('route-stop-list'), routeOrder=document.getElementById('route-order'), routeStatus=document.getElementById('route-status'), applyButton=document.getElementById('route-apply'), manualPanel=document.getElementById('manual-route-order'), manualList=document.getElementById('manual-job-list');
  const locks=new Set(JSON.parse(localStorage.getItem('routeLocks')||'[]')); let priorOrder=null, routeResult=null, draggedId=null, proposal=null, routeMap=null, routeLayer=null, routeMarkers=null;
  const jobsForDay=()=>all.filter(job=>job.day===day.value).sort((a,b)=>a.position-b.position);
+ let swipeStart=null;
+ function changeDayBy(days){const value=new Date(day.value+'T12:00:00');value.setDate(value.getDate()+days);day.value=value.toISOString().slice(0,10);day.dispatchEvent(new Event('change'))}
+ timeline.addEventListener('pointerdown',event=>{if(event.pointerType==='touch')swipeStart={x:event.clientX,y:event.clientY}});
+ timeline.addEventListener('pointerup',event=>{if(!swipeStart||event.pointerType!=='touch')return;const dx=event.clientX-swipeStart.x,dy=event.clientY-swipeStart.y;swipeStart=null;if(Math.abs(dx)<70||Math.abs(dx)<=Math.abs(dy))return;changeDayBy(dx<0?1:-1)});
+ timeline.addEventListener('pointercancel',()=>{swipeStart=null});
  const address=job=>{const details=JSON.parse(job.details||'{}');return details['Site Address']||job.postcode||''};
  const api=async(path,body)=>{const response=await fetch(path,body===undefined?{cache:'no-store'}:{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});const data=await response.json();if(!response.ok)throw new Error(data.error||'Route request failed.');return data};
  function applyOrder(ids){const selected=new Map(all.filter(job=>ids.includes(job.id)).map(job=>[job.id,job])),ordered=ids.map(id=>selected.get(Number(id))).filter(Boolean);ordered.forEach((job,index)=>job.position=index);all=[...all.filter(job=>job.day!==day.value),...ordered];render();enhance()}
