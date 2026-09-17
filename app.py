@@ -199,7 +199,7 @@ def export(job_id):
  c=db(); job=c.execute('SELECT * FROM jobs WHERE id=?',(job_id,)).fetchone(); jobs=list(c.execute('SELECT * FROM jobs WHERE day=? ORDER BY position,id',(job['day'],))); st={x['k']:x['v'] for x in c.execute('SELECT * FROM settings')}; c.close()
  materials=request.args.get('materials','').strip()
  if len(materials)>2000: return jsonify(error='Materials text is too long.'),400
- materials_value=f'CEF: {materials}' if materials else ''
+ materials_value=f'CEF:\n{materials}' if materials else ''
  i=next(n for n,x in enumerate(jobs) if x['id']==job_id); prev=st.get('leave_home','') if i==0 else jobs[i-1]['finish']; nxt=st.get('return_home','') if i==len(jobs)-1 else jobs[i+1]['start']
  root=ET.parse(MASTER).getroot(); rec=root.find('record'); d=json.loads(job['details']); rec.set('name',f"{job['job_no']} {job['day'].replace('-','/')}")
  long_date=datetime.strptime(job['day'],'%Y-%m-%d').strftime('%d %B %Y')
