@@ -26,8 +26,8 @@ def _read_json(req,limit=4*1024*1024):
   raise RouteError(detail or 'OpenRouteService could not calculate this route.',502)
  except (URLError,socket.timeout,TimeoutError,OSError,ValueError): raise RouteError('OpenRouteService could not be reached. Try again shortly.',502)
 
-def _post(path,key,body):
- return _read_json(Request(ORS+path,data=json.dumps(body).encode(),method='POST',headers={'Authorization':key,'Content-Type':'application/json','Accept':'application/json'}))
+def _post(path,key,body,accept='application/json'):
+ return _read_json(Request(ORS+path,data=json.dumps(body).encode(),method='POST',headers={'Authorization':key,'Content-Type':'application/json','Accept':accept}))
 
 def _geocode(key,text,db):
  normal=' '.join(str(text).split()); cache_key='route_geocode:'+sha256(normal.lower().encode()).hexdigest()
@@ -62,7 +62,7 @@ def _keep_locked(original,proposed,locked_keys):
  return result
 
 def _directions(key,home,ordered):
- data=_post('/v2/directions/driving-car/geojson',key,{'coordinates':[home]+[item['coordinates'] for item in ordered]+[home],'instructions':False,'units':'mi'})
+ data=_post('/v2/directions/driving-car/geojson',key,{'coordinates':[home]+[item['coordinates'] for item in ordered]+[home],'instructions':False,'units':'mi'},'application/geo+json')
  features=data.get('features',[]) if isinstance(data,dict) else []
  if not features: raise RouteError('No complete driving route was found for these stops.',422)
  feature=features[0]; props=feature.get('properties',{}); route_summary=props.get('summary',{}); segments=props.get('segments',[]); legs=[]
