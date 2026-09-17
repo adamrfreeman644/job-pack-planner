@@ -133,7 +133,7 @@ def settings_page(): return render_template('settings.html')
 @app.get('/api/state')
 def state():
  c=db(); jobs=[dict(x) for x in c.execute('SELECT * FROM jobs ORDER BY day,position,id')]
- st={x['k']:x['v'] for x in c.execute('SELECT * FROM settings') if not x['k'].startswith('immich_') and x['k'] != 'google_routes_api_key'}; c.close()
+ st={x['k']:x['v'] for x in c.execute('SELECT * FROM settings') if not x['k'].startswith('immich_') and not x['k'].startswith('route_') and x['k'] not in {'google_routes_api_key','openrouteservice_api_key'}}; c.close()
  return jsonify(jobs=jobs,settings=st,master=MASTER.exists())
 
 @app.post('/api/import')

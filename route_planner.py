@@ -1,216 +1,160 @@
-"""Optional Google route planning for the day planner."""
-from datetime import datetime, timedelta
+"""OpenRouteService optimisation and saved daily route plans."""
+from hashlib import sha256
+from math import asin, cos, radians, sin, sqrt
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
 from urllib.request import Request, urlopen
-import json
-import socket
-
+import json, re, socket
 from flask import jsonify, request
 
+ORS='https://api.openrouteservice.org'; DAY=re.compile(r'^\d{4}-\d{2}-\d{2}$')
 
 class RouteError(Exception):
-    def __init__(self, message, status=400):
-        super().__init__(message)
-        self.status = status
+ def __init__(self,message,status=400): super().__init__(message); self.status=status
 
+def _read_json(req,limit=4*1024*1024):
+ try:
+  with urlopen(req,timeout=25) as response:
+   raw=response.read(limit+1)
+   if len(raw)>limit: raise RouteError('The routing response was too large.',502)
+   return json.loads(raw)
+ except HTTPError as error:
+  try: detail=json.loads(error.read()).get('error',{}).get('message','')
+  except Exception: detail=''
+  if error.code in {401,403}: raise RouteError('OpenRouteService refused the API key. Check the key in Settings.',502)
+  if error.code==429: raise RouteError('The OpenRouteService free allowance is temporarily exhausted. Try again later.',429)
+  raise RouteError(detail or 'OpenRouteService could not calculate this route.',502)
+ except (URLError,socket.timeout,TimeoutError,OSError,ValueError): raise RouteError('OpenRouteService could not be reached. Try again shortly.',502)
 
-def _google_request(api_key, origin, destination, stops, optimise):
-    body = {
-        'origin': {'address': origin},
-        'destination': {'address': destination},
-        'intermediates': [{'address': stop['address']} for stop in stops],
-        'travelMode': 'DRIVE',
-        'routingPreference': 'TRAFFIC_AWARE',
-        'computeAlternativeRoutes': False,
-        'languageCode': 'en-GB',
-        'regionCode': 'gb',
-        'units': 'IMPERIAL',
-    }
-    if optimise and len(stops) > 1:
-        body['optimizeWaypointOrder'] = True
-    fields = ('routes.optimizedIntermediateWaypointIndex,routes.legs.duration,'
-              'routes.legs.distanceMeters,routes.duration,routes.distanceMeters')
-    req = Request(
-        'https://routes.googleapis.com/directions/v2:computeRoutes',
-        data=json.dumps(body).encode(),
-        headers={'Content-Type': 'application/json', 'X-Goog-Api-Key': api_key,
-                 'X-Goog-FieldMask': fields},
-        method='POST',
-    )
-    try:
-        with urlopen(req, timeout=20) as response:
-            data = json.loads(response.read(2 * 1024 * 1024))
-    except HTTPError as error:
-        try:
-            detail = json.loads(error.read()).get('error', {}).get('message', '')
-        except Exception:
-            detail = ''
-        if error.code in {401, 403}:
-            raise RouteError('Google refused the route request. Check the API key, billing and Routes API settings.', 502)
-        raise RouteError(detail or 'Google could not calculate this route.', 502)
-    except (URLError, socket.timeout, TimeoutError, OSError, ValueError):
-        raise RouteError('Google Routes could not be reached. Try again shortly.', 502)
-    routes = data.get('routes') if isinstance(data, dict) else None
-    if not routes:
-        raise RouteError('No driving route was found for these addresses.', 422)
-    return routes[0]
+def _post(path,key,body):
+ return _read_json(Request(ORS+path,data=json.dumps(body).encode(),method='POST',headers={'Authorization':key,'Content-Type':'application/json','Accept':'application/json'}))
 
+def _geocode(key,text,db):
+ normal=' '.join(str(text).split()); cache_key='route_geocode:'+sha256(normal.lower().encode()).hexdigest()
+ c=db(); row=c.execute('SELECT v FROM settings WHERE k=?',(cache_key,)).fetchone(); c.close()
+ if row:
+  try: return json.loads(row['v'])
+  except (ValueError,TypeError): pass
+ query=urlencode({'api_key':key,'text':normal,'boundary.country':'GB','size':1})
+ data=_read_json(Request(ORS+'/geocode/search?'+query,headers={'Accept':'application/json'})); features=data.get('features',[]) if isinstance(data,dict) else []
+ if not features or not isinstance(features[0].get('geometry',{}).get('coordinates'),list): raise RouteError(f'Could not locate: {normal}',422)
+ coords=features[0]['geometry']['coordinates'][:2]
+ c=db(); c.execute('INSERT OR REPLACE INTO settings(k,v) VALUES(?,?)',(cache_key,json.dumps(coords))); c.commit(); c.close(); return coords
 
-def _seconds(value):
-    try:
-        return round(float(str(value).rstrip('s')))
-    except (TypeError, ValueError):
-        return 0
+def _haversine(a,b):
+ lon1,lat1,lon2,lat2=map(radians,[a[0],a[1],b[0],b[1]]); dlon, dlat=lon2-lon1,lat2-lat1
+ value=sin(dlat/2)**2+cos(lat1)*cos(lat2)*sin(dlon/2)**2
+ return 12742*asin(min(1,sqrt(value)))
 
+def _least_driving(key,home,items):
+ if len(items)<2: return list(items)
+ data=_post('/optimization',key,{'jobs':[{'id':i+1,'location':item['coordinates']} for i,item in enumerate(items)],'vehicles':[{'id':1,'profile':'driving-car','start':home,'end':home}]})
+ routes=data.get('routes',[]) if isinstance(data,dict) else []
+ if not routes: raise RouteError('OpenRouteService did not return an optimised route.',422)
+ ids=[step.get('job') for step in routes[0].get('steps',[]) if step.get('type')=='job']
+ if len(ids)!=len(items): raise RouteError('OpenRouteService returned an incomplete stop order.',502)
+ return [items[index-1] for index in ids]
 
-def _minutes(value):
-    hour, minute = map(int, value.split(':'))
-    return hour * 60 + minute
+def _keep_locked(original,proposed,locked_keys):
+ if not locked_keys: return proposed
+ locked_slots={i:item for i,item in enumerate(original) if item['key'] in locked_keys}; remaining=[item for item in proposed if item['key'] not in locked_keys]; result=[]
+ for i in range(len(original)): result.append(locked_slots[i] if i in locked_slots else remaining.pop(0))
+ return result
 
+def _directions(key,home,ordered):
+ data=_post('/v2/directions/driving-car/geojson',key,{'coordinates':[home]+[item['coordinates'] for item in ordered]+[home],'instructions':False,'units':'mi'})
+ features=data.get('features',[]) if isinstance(data,dict) else []
+ if not features: raise RouteError('No complete driving route was found for these stops.',422)
+ feature=features[0]; props=feature.get('properties',{}); route_summary=props.get('summary',{}); segments=props.get('segments',[]); legs=[]
+ for i,segment in enumerate(segments):
+  legs.append({'from_key':'home' if i==0 else ordered[i-1]['key'],'to_key':'home' if i>=len(ordered) else ordered[i]['key'],'duration_minutes':max(1,round(float(segment.get('duration',0))/60)),'distance_miles':round(float(segment.get('distance',0)),1)})
+ return {'legs':legs,'duration_minutes':max(1,round(float(route_summary.get('duration',0))/60)),'distance_miles':round(float(route_summary.get('distance',0)),1),'geometry':feature.get('geometry',{}).get('coordinates',[])}
 
-def _optimise_with_locks(api_key, home, jobs, locked_ids):
-    if len(jobs) < 2:
-        return jobs
-    locked_positions = [i for i, job in enumerate(jobs) if job['id'] in locked_ids]
-    if not locked_positions:
-        route = _google_request(api_key, home, home, jobs, True)
-        order = route.get('optimizedIntermediateWaypointIndex', list(range(len(jobs))))
-        return [jobs[i] for i in order]
+def register_routes(app,db):
+ def values():
+  c=db(); out={row['k']:row['v'] for row in c.execute("SELECT k,v FROM settings WHERE k IN ('home_address','openrouteservice_api_key')")}; c.close(); return out
+ def body():
+  data=request.get_json(silent=True) if request.is_json else None
+  if not isinstance(data,dict): raise RouteError('Use the planner to submit this request.',415)
+  return data
+ def reply(fn):
+  try: response=app.make_response(fn())
+  except RouteError as error: response=jsonify(error=str(error)); response.status_code=error.status
+  response.headers['Cache-Control']='no-store'; response.headers['X-Content-Type-Options']='nosniff'; return response
+ def saved_plan(day):
+  c=db(); row=c.execute('SELECT v FROM settings WHERE k=?',('route_plan:'+day,)).fetchone(); c.close()
+  if not row: return {'day':day,'stops':[],'items':[]}
+  try: return json.loads(row['v'])
+  except (ValueError,TypeError): return {'day':day,'stops':[],'items':[]}
 
-    result = []
-    boundaries = [-1] + locked_positions + [len(jobs)]
-    for boundary_index in range(len(boundaries) - 1):
-        left, right = boundaries[boundary_index], boundaries[boundary_index + 1]
-        segment = jobs[left + 1:right]
-        origin = home if left < 0 else jobs[left]['address']
-        destination = home if right >= len(jobs) else jobs[right]['address']
-        if len(segment) > 1:
-            route = _google_request(api_key, origin, destination, segment, True)
-            order = route.get('optimizedIntermediateWaypointIndex', list(range(len(segment))))
-            segment = [segment[i] for i in order]
-        result.extend(segment)
-        if right < len(jobs):
-            result.append(jobs[right])
-    return result
+ @app.get('/api/route/settings')
+ def route_settings(): return reply(lambda: jsonify(home_address=values().get('home_address',''),has_api_key=bool(values().get('openrouteservice_api_key')),provider='OpenRouteService'))
 
+ @app.post('/api/route/settings')
+ def save_route_settings():
+  def action():
+   data=body(); home=str(data.get('home_address','')).strip(); key=str(data.get('api_key','')).strip()
+   if len(home)>500 or len(key)>4096 or any(ord(ch)<32 for ch in key): raise RouteError('The route settings are invalid.')
+   c=db(); c.execute('INSERT OR REPLACE INTO settings(k,v) VALUES(?,?)',('home_address',home))
+   if data.get('clear_api_key'): c.execute("DELETE FROM settings WHERE k='openrouteservice_api_key'")
+   elif key: c.execute('INSERT OR REPLACE INTO settings(k,v) VALUES(?,?)',('openrouteservice_api_key',key))
+   c.execute("DELETE FROM settings WHERE k='google_routes_api_key'"); c.commit(); c.close(); current=values()
+   return jsonify(home_address=current.get('home_address',''),has_api_key=bool(current.get('openrouteservice_api_key')),provider='OpenRouteService')
+  return reply(action)
 
-def register_routes(app, db):
-    def setting_values():
-        c = db()
-        values = {row['k']: row['v'] for row in c.execute(
-            "SELECT k,v FROM settings WHERE k IN ('home_address','google_routes_api_key')")}
-        c.close()
-        return values
+ @app.get('/api/route/day/<day>')
+ def get_day_route(day):
+  def action():
+   if not DAY.fullmatch(day): raise RouteError('Invalid date.')
+   return jsonify(saved_plan(day))
+  return reply(action)
 
-    def json_body():
-        if not request.is_json:
-            raise RouteError('Use the planner to submit this request.', 415)
-        body = request.get_json(silent=True)
-        if not isinstance(body, dict):
-            raise RouteError('Invalid route request.')
-        return body
+ @app.post('/api/route/plan')
+ def plan_route():
+  def action():
+   data=body(); day=str(data.get('day','')); raw_ids=data.get('job_ids',[]); raw_stops=data.get('stops',[]); mode=data.get('mode','least')
+   if not DAY.fullmatch(day) or mode not in {'least','furthest'} or not isinstance(raw_ids,list) or not isinstance(raw_stops,list): raise RouteError('The route request is invalid.')
+   if not raw_ids and not raw_stops: raise RouteError('Add at least one job or pickup stop.')
+   if len(raw_ids)+len(raw_stops)>25: raise RouteError('A route can contain up to 25 stops.')
+   try: ids=[int(value) for value in raw_ids]
+   except (TypeError,ValueError): raise RouteError('The selected jobs are invalid.')
+   current=values(); home_text=current.get('home_address','').strip(); key=current.get('openrouteservice_api_key','').strip()
+   if not home_text: raise RouteError('Add your home or start address in Settings first.',409)
+   if not key: raise RouteError('Add a free OpenRouteService API key in Settings first.',409)
+   c=db(); placeholders=','.join('?' for _ in ids); rows=list(c.execute(f'SELECT * FROM jobs WHERE id IN ({placeholders})',ids)) if ids else []; c.close(); by_id={row['id']:row for row in rows}
+   if len(by_id)!=len(ids): raise RouteError('One of these jobs no longer exists.',404)
+   items=[]
+   for job_id in ids:
+    row=by_id[job_id]; details=json.loads(row['details'] or '{}'); address=(details.get('Site Address') or row['postcode'] or '').strip()
+    if not address: raise RouteError(f"Job {row['job_no']} has no address.",422)
+    items.append({'key':f'job:{job_id}','type':'job','id':job_id,'label':row['job_no']+' · '+row['title'],'address':address})
+   clean_stops=[]
+   for index,stop in enumerate(raw_stops):
+    if not isinstance(stop,dict): raise RouteError('A pickup or drop-off is invalid.')
+    stop_id=re.sub(r'[^A-Za-z0-9_-]','',str(stop.get('id','')))[:80] or f'stop-{index+1}'; kind=stop.get('type') if stop.get('type') in {'pickup','dropoff'} else 'pickup'; label=str(stop.get('label','')).strip()[:120]; address=str(stop.get('address','')).strip()[:500]
+    if not label or not address: raise RouteError('Each pickup or drop-off needs a name and address.')
+    clean={'id':stop_id,'type':kind,'label':label,'address':address}; clean_stops.append(clean); items.append({'key':'stop:'+stop_id,**clean})
+   home=_geocode(key,home_text,db)
+   for item in items: item['coordinates']=_geocode(key,item['address'],db)
+   proposed=sorted(items,key=lambda item:_haversine(home,item['coordinates']),reverse=True) if mode=='furthest' else _least_driving(key,home,items)
+   locked={f'job:{int(value)}' for value in data.get('locked_ids',[]) if str(value).isdigit()}; ordered=_keep_locked(items,proposed,locked); route=_directions(key,home,ordered)
+   public_items=[{k:v for k,v in item.items() if k!='coordinates'} for item in ordered]
+   return jsonify(day=day,mode=mode,items=public_items,stops=clean_stops,**route)
+  return reply(action)
 
-    def reply(fn):
-        try:
-            response = app.make_response(fn())
-        except RouteError as error:
-            response = jsonify(error=str(error))
-            response.status_code = error.status
-        response.headers['Cache-Control'] = 'no-store'
-        response.headers['X-Content-Type-Options'] = 'nosniff'
-        return response
-
-    @app.get('/api/route/settings')
-    def route_settings():
-        def action():
-            values = setting_values()
-            return jsonify(home_address=values.get('home_address', ''),
-                           has_api_key=bool(values.get('google_routes_api_key')))
-        return reply(action)
-
-    @app.post('/api/route/settings')
-    def save_route_settings():
-        def action():
-            body = json_body()
-            home = str(body.get('home_address', '')).strip()
-            key = str(body.get('api_key', '')).strip()
-            if len(home) > 500 or len(key) > 4096 or any(ord(ch) < 32 for ch in key):
-                raise RouteError('The route settings are invalid.')
-            c = db()
-            c.execute('INSERT OR REPLACE INTO settings(k,v) VALUES(?,?)', ('home_address', home))
-            if body.get('clear_api_key'):
-                c.execute("DELETE FROM settings WHERE k='google_routes_api_key'")
-            elif key:
-                c.execute('INSERT OR REPLACE INTO settings(k,v) VALUES(?,?)', ('google_routes_api_key', key))
-            c.commit(); c.close()
-            values = setting_values()
-            return jsonify(home_address=values.get('home_address', ''),
-                           has_api_key=bool(values.get('google_routes_api_key')))
-        return reply(action)
-
-    @app.post('/api/route/plan')
-    def plan_route():
-        def action():
-            body = json_body()
-            raw_ids = body.get('job_ids', [])
-            if not isinstance(raw_ids, list) or not raw_ids or len(raw_ids) > 25:
-                raise RouteError('Choose between 1 and 25 jobs to plan.')
-            try:
-                ids = [int(value) for value in raw_ids]
-                locked_ids = {int(value) for value in body.get('locked_ids', [])}
-            except (TypeError, ValueError):
-                raise RouteError('The selected jobs are invalid.')
-            if len(ids) != len(set(ids)):
-                raise RouteError('A job was included more than once.')
-            values = setting_values(); home = values.get('home_address', '').strip()
-            api_key = values.get('google_routes_api_key', '').strip()
-            if not home:
-                raise RouteError('Add your home or start address in Settings first.', 409)
-            if not api_key:
-                raise RouteError('Add a Google Routes API key in Settings to optimise the day.', 409)
-            c = db()
-            placeholders = ','.join('?' for _ in ids)
-            rows = list(c.execute(f'SELECT * FROM jobs WHERE id IN ({placeholders})', ids))
-            c.close()
-            by_id = {row['id']: row for row in rows}
-            if len(by_id) != len(ids):
-                raise RouteError('One of these jobs no longer exists.', 404)
-            jobs = []
-            for job_id in ids:
-                row = by_id[job_id]
-                details = json.loads(row['details'] or '{}')
-                address = (details.get('Site Address') or row['postcode'] or '').strip()
-                if not address:
-                    raise RouteError(f"Job {row['job_no']} has no site address.", 422)
-                jobs.append({'id': row['id'], 'job_no': row['job_no'], 'address': address,
-                             'start': row['start'], 'finish': row['finish']})
-            ordered = _optimise_with_locks(api_key, home, jobs, locked_ids)
-            final_route = _google_request(api_key, home, home, ordered, False)
-            raw_legs = final_route.get('legs', [])
-            legs = []
-            for i, leg in enumerate(raw_legs):
-                duration_seconds = _seconds(leg.get('duration'))
-                warning = ''
-                if i < len(ordered):
-                    depart = body.get('leave_home', '07:00') if i == 0 else ordered[i - 1]['finish']
-                    arrive = ordered[i]['start']
-                    try:
-                        available = _minutes(arrive) - _minutes(depart)
-                        if available < 0: available += 24 * 60
-                        if duration_seconds > available * 60:
-                            warning = f"Needs about {round(duration_seconds / 60)} min; only {available} min allowed"
-                    except (ValueError, TypeError):
-                        pass
-                legs.append({
-                    'from_id': None if i == 0 else ordered[i - 1]['id'],
-                    'to_id': None if i >= len(ordered) else ordered[i]['id'],
-                    'duration_minutes': max(1, round(duration_seconds / 60)),
-                    'distance_miles': round(float(leg.get('distanceMeters', 0)) / 1609.344, 1),
-                    'warning': warning,
-                })
-            return jsonify(
-                ordered_ids=[job['id'] for job in ordered], legs=legs,
-                duration_minutes=max(1, round(_seconds(final_route.get('duration')) / 60)),
-                distance_miles=round(float(final_route.get('distanceMeters', 0)) / 1609.344, 1),
-            )
-        return reply(action)
+ @app.post('/api/route/apply')
+ def apply_route():
+  def action():
+   data=body(); day=str(data.get('day','')); items=data.get('items',[]); stops=data.get('stops',[])
+   if not DAY.fullmatch(day) or not isinstance(items,list) or not isinstance(stops,list): raise RouteError('The saved route is invalid.')
+   job_ids=[]
+   for item in items:
+    if isinstance(item,dict) and item.get('type')=='job':
+     try: job_ids.append(int(item['id']))
+     except (KeyError,TypeError,ValueError): raise RouteError('The saved job order is invalid.')
+   c=db()
+   for position,job_id in enumerate(job_ids): c.execute('UPDATE jobs SET position=? WHERE id=? AND day=?',(position,job_id,day))
+   saved={'day':day,'mode':data.get('mode','least'),'items':items,'stops':stops,'duration_minutes':data.get('duration_minutes',0),'distance_miles':data.get('distance_miles',0),'legs':data.get('legs',[]),'geometry':data.get('geometry',[])}
+   c.execute('INSERT OR REPLACE INTO settings(k,v) VALUES(?,?)',('route_plan:'+day,json.dumps(saved))); c.commit(); c.close()
+   return jsonify(ok=True,ordered_ids=job_ids)
+  return reply(action)
