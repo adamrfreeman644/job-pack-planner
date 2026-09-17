@@ -83,9 +83,9 @@ Successful results are cached locally by site postcode. If the lookup fails or f
 
 ## Day route planning
 
-Every job card has up/down controls and a drag handle. Change the order manually and press **Save day**, or press **Plan route** for the full-screen planner.
+Route ordering is kept in one place: press **Plan day** for the full-screen planner. The main timeline stays focused on job times and Job Pack actions.
 
-The daily route planner offers **Least driving** and **Furthest first** modes. Enter each colleague once with their name and home address or postcode. The planner automatically places their pickup before every job and their matching drop-off after every job. The day always starts and finishes at your saved home address. Collections are saved for that date and included in routing, but do not create Job Packs. Locked job cards remain in their existing slots. Review the map, ordered stops, mileage and estimated driving time, then press **Save and apply route**.
+The daily route planner offers three clear levels: **Auto** chooses the least-driving route, **Semi-auto** starts at the furthest job and works home, and **Manual** lets you set the job order with up/down controls. Enter each colleague once with their name and home address or postcode. The planner automatically places their pickup before every job and their matching drop-off after every job. The day always starts and finishes at your saved home address. Collections are saved for that date and included in routing, but do not create Job Packs. Review the map, ordered stops, mileage and estimated driving time, then press **Save and apply route**.
 
 Automatic planning uses the free OpenRouteService public API:
 
@@ -96,7 +96,7 @@ Automatic planning uses the free OpenRouteService public API:
 
 The key stays in `planner.db` and is excluded from browser state. Geocoded locations are cached locally to reduce API use. A route supports up to 25 combined jobs, pickups and drop-offs.
 
-**Open route** sends the saved order to the normal Google Maps website/app. Google is used only for navigation, so no Google API key or billing account is required.
+**Start route** sends the saved order to the normal Google Maps website/app. Google is used only for navigation, so no Google API key or billing account is required.
 
 ## Job photos with Immich
 
