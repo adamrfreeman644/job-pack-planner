@@ -33,6 +33,7 @@
     @media(max-width:780px){header{padding:0 12px;gap:9px}.wordmark{display:none}.app-mark{display:block}main{padding:12px}.card{border-radius:13px}.event{grid-template-columns:24px minmax(0,1fr);gap:6px}.timeline{padding:13px 10px}.event-card{padding:11px}.actions,.times{flex-direction:column}.empty{margin-left:30px}.date{min-width:155px;max-width:175px;height:48px;font-size:1rem}}
   </style>
   <link rel="stylesheet" href="/static/photos.css">
+  <link rel="stylesheet" href="/static/route-planner.css">
 </head>
 <body>
   <header><a class="brand-home" href="/" aria-label="Job Pack Planner"><img class="wordmark" src="/static/logo.svg" alt="Job Pack Planner"><img class="app-mark" src="/static/icon.svg" alt=""></a><button class="photo-header" id="check-photos">Check photos</button><input class="date" type="date" id="day"><a class="icon-link" href="/settings" aria-label="Settings">⚙</a></header>
@@ -79,5 +80,6 @@
     day.onchange=render;load();if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js'));
   </script>
   <script src="/static/photos.js"></script>
+  <script src="/static/route-planner.js"></script>
 </body>
 </html>
