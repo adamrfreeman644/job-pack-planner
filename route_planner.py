@@ -154,7 +154,7 @@ def register_routes(app,db):
      except (KeyError,TypeError,ValueError): raise RouteError('The saved job order is invalid.')
    c=db()
    for position,job_id in enumerate(job_ids): c.execute('UPDATE jobs SET position=? WHERE id=? AND day=?',(position,job_id,day))
-   saved={'day':day,'mode':data.get('mode','least'),'items':items,'stops':stops,'duration_minutes':data.get('duration_minutes',0),'distance_miles':data.get('distance_miles',0)}
+   saved={'day':day,'mode':data.get('mode','least'),'items':items,'stops':stops,'duration_minutes':data.get('duration_minutes',0),'distance_miles':data.get('distance_miles',0),'legs':data.get('legs',[]),'geometry':data.get('geometry',[])}
    c.execute('INSERT OR REPLACE INTO settings(k,v) VALUES(?,?)',('route_plan:'+day,json.dumps(saved))); c.commit(); c.close()
    return jsonify(ok=True,ordered_ids=job_ids)
   return reply(action)
