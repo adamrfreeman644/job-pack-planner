@@ -45,7 +45,7 @@
   if(routeLayer)routeLayer.remove();const latlngs=result.geometry.map(point=>[point[1],point[0]]);routeLayer=L.polyline(latlngs,{color:'#087f6d',weight:5}).addTo(routeMap);routeMap.fitBounds(routeLayer.getBounds(),{padding:[24,24]});setTimeout(()=>routeMap.invalidateSize(),50);
  }
  function showProposal(result){
-  routeOrder.innerHTML=result.items.map((item,index)=>{const leg=result.legs.find(value=>value.to_key===item.key);return `<li><span class="route-number">${index+1}</span><div><strong>${esc(item.type==='pickup'?'Pickup · '+item.label:item.type==='dropoff'?'Drop-off · '+item.label:item.label)}</strong><small>${esc(item.address)}</small>${leg?`<em>${leg.duration_minutes} min · ${leg.distance_miles} miles from previous stop</em>`:''}</div></li>`}).join('');
+  routeOrder.innerHTML=result.items.map((item,index)=>{const leg=(result.legs||[]).find(value=>value.to_key===item.key);return `<li><span class="route-number">${index+1}</span><div><strong>${esc(item.type==='pickup'?'Pickup · '+item.label:item.type==='dropoff'?'Drop-off · '+item.label:item.label)}</strong><small>${esc(item.address)}</small>${leg?`<em>${leg.duration_minutes} min · ${leg.distance_miles} miles from previous stop</em>`:''}</div></li>`}).join('');
   routeStatus.textContent=`${result.distance_miles} miles · about ${result.duration_minutes} minutes driving`;drawMap(result);applyButton.disabled=false;
  }
  async function openPlanner(){
