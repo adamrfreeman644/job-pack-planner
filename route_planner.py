@@ -120,7 +120,7 @@ def register_routes(app,db):
  def plan_route():
   def action():
    data=body(); day=str(data.get('day','')); raw_ids=data.get('job_ids',[]); raw_stops=data.get('stops',[]); mode=data.get('mode','least')
-   if not DAY.fullmatch(day) or mode not in {'least','furthest'} or not isinstance(raw_ids,list) or not isinstance(raw_stops,list): raise RouteError('The route request is invalid.')
+   if not DAY.fullmatch(day) or mode not in {'least','furthest','manual'} or not isinstance(raw_ids,list) or not isinstance(raw_stops,list): raise RouteError('The route request is invalid.')
    if not raw_ids and not raw_stops: raise RouteError('Add at least one job or pickup stop.')
    if len(raw_ids)+len(raw_stops)>25: raise RouteError('A route can contain up to 25 stops.')
    try: ids=[int(value) for value in raw_ids]
@@ -149,7 +149,7 @@ def register_routes(app,db):
    pickups=_nearest_order(home,[{'key':'pickup:'+stop['id'],'type':'pickup','id':stop['id'],'label':stop['label'],'address':stop['address'],'coordinates':stop['coordinates']} for stop in collections])
    dropoffs=[{'key':'dropoff:'+stop['id'],'type':'dropoff','id':stop['id'],'label':stop['label'],'address':stop['address'],'coordinates':stop['coordinates']} for stop in reversed(pickups)]
    job_start=pickups[-1]['coordinates'] if pickups else home; job_end=dropoffs[0]['coordinates'] if dropoffs else home
-   proposed=sorted(job_items,key=lambda item:_haversine(home,item['coordinates']),reverse=True) if mode=='furthest' else _least_driving(key,job_start,job_end,job_items)
+   proposed=sorted(job_items,key=lambda item:_haversine(home,item['coordinates']),reverse=True) if mode=='furthest' else list(job_items) if mode=='manual' else _least_driving(key,job_start,job_end,job_items)
    locked={f'job:{int(value)}' for value in data.get('locked_ids',[]) if str(value).isdigit()}; ordered_jobs=_keep_locked(job_items,proposed,locked); ordered=pickups+ordered_jobs+dropoffs; route=_directions(key,home,ordered)
    public_items=[{k:v for k,v in item.items() if k!='coordinates'} for item in ordered]
    return jsonify(day=day,mode=mode,items=public_items,stops=clean_stops,**route)
