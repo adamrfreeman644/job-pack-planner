@@ -202,11 +202,6 @@ def set_occurrence_values(rec,name,values):
  matches=[f for f in rec.findall('field') if f.get('name')==name]
  for i,f in enumerate(matches): f.text=str(values[i] if i<len(values) else '')
 
-def set_materials_used(rec,value):
- for f in rec.findall('field'):
-  name=(f.get('name') or '').lower()
-  if 'material' in name and 'used' in name: f.text=str(value or '')
-
 @app.get('/api/export/<int:job_id>')
 def export(job_id):
  if not MASTER.exists(): return jsonify(error='Upload a completed reference XML in Settings first'),400
@@ -218,9 +213,8 @@ def export(job_id):
  root=ET.parse(MASTER).getroot(); rec=root.find('record'); d=json.loads(job['details']); rec.set('name',f"{job['job_no']} {job['day'].replace('-','/')}")
  long_date=datetime.strptime(job['day'],'%Y-%m-%d').strftime('%d %B %Y')
  resource_text=d.get('A&A Resources') or st.get('resources','Adam Freeman, Peter Bennett, RA25 TLZ'); engineers=assigned_engineers(resource_text)
- mapping={'Front Cover date':long_date,'Front Cover job no.':job['job_no'],'Front Cover client':d.get('Company'),'Booking ID':d.get('Booking ID'),'Job No.':job['job_no'],'Job Number':job['job_no'],'Division':'AM','Date':long_date,'Company':d.get('Company'),'Cust. Ref.':d.get('Cust. Ref.'),'Work Order':d.get('Cust. Ref.'),'Site Address':d.get('Site Address'),'Site Contact':d.get('Site Contact'),'Site Phone':d.get('Site Phone'),'Service':d.get('Service'),'Work Required':d.get('Work Required'),'Depart Time':prev,'Arrive Site':job['start'],'Depart Site':job['finish'],'Arrive Next':nxt,'A&A Resources':resource_text,'A&A Representative':d.get('A&A Representative') or (engineers[0] if engineers else ''),'Customer Representative':'SM','Site Representative':'SM','A&E Hospital location & postcode':nearest_ae(job['postcode'] or postcode(d.get('Site Address',''))),'Lead Engineer':engineers[0] if engineers else '','Engineer 2':engineers[1] if len(engineers)>1 else '','RAMS Number ':st.get('rams','010203'),'Materials Used':materials_value}
+ mapping={'Front Cover date':long_date,'Front Cover job no.':job['job_no'],'Front Cover client':d.get('Company'),'Booking ID':d.get('Booking ID'),'Job No.':job['job_no'],'Job Number':job['job_no'],'Division':'AM','Date':long_date,'Company':d.get('Company'),'Cust. Ref.':d.get('Cust. Ref.'),'Work Order':d.get('Cust. Ref.'),'Site Address':d.get('Site Address'),'Site Contact':d.get('Site Contact'),'Site Phone':d.get('Site Phone'),'Service':d.get('Service'),'Work Required':d.get('Work Required'),'Depart Time':prev,'Arrive Site':job['start'],'Depart Site':job['finish'],'Arrive Next':nxt,'A&A Resources':resource_text,'A&A Representative':d.get('A&A Representative') or (engineers[0] if engineers else ''),'Customer Representative':'SM','Site Representative':'SM','A&E Hospital location & postcode':nearest_ae(job['postcode'] or postcode(d.get('Site Address',''))),'Lead Engineer':engineers[0] if engineers else '','Engineer 2':engineers[1] if len(engineers)>1 else '','RAMS Number ':st.get('rams','010203'),'Equipment & Materials':materials_value}
  for k,v in mapping.items(): set_occurrences(rec,k,v)
- set_materials_used(rec,materials_value)
  set_occurrence_values(rec,'Customer ',['SM',''])
  set_occurrences(rec,'Further Works Required','0'); set_occurrences(rec,'All Works Complete','0')
  for k in ['Do you have the correct documentation or permit for the task?','Do you understand the task?','Are you authorised & competent to carry out the task?','Are isolations in place?','Do you have the correct PPE and tools for the job?','Are calibrated items in date?','Have all vehicle checks been carried out?']: set_occurrences(rec,k,'Yes')
