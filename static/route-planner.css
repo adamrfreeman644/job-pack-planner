@@ -9,3 +9,5 @@
 @media(max-width:700px){.route-modes{grid-template-columns:1fr}}
 
 .route-pin-wrap{background:transparent;border:0}.route-pin{display:grid;place-items:center;width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#087f6d;color:#fff;border:2px solid #fff;box-shadow:0 2px 7px #102f3e66;font-size:.78rem;font-weight:900}.route-pin>span{transform:rotate(45deg)}
+
+.route-modal-head #route-fullscreen{margin-left:auto}.route-modal-head #route-close{margin-left:0}.map-fullscreen{position:fixed!important;inset:0!important;z-index:70!important;width:100vw!important;height:100vh!important;max-width:none!important;max-height:none!important;border-radius:0!important}
