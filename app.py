@@ -12,7 +12,14 @@ SHARE=Path(os.getenv('JOB_PACK_SHARE','/imports'))
 
 def db():
  c=sqlite3.connect(DB); c.row_factory=sqlite3.Row
- c.execute('CREATE TABLE IF NOT EXISTS jobs(id INTEGER PRIMARY KEY,job_no TEXT UNIQUE,day TEXT,booking_xml TEXT,title TEXT,postcode TEXT,start TEXT,finish TEXT,position INTEGER,details TEXT)')
+ columns=[row['name'] for row in c.execute('PRAGMA table_info(jobs)')]
+ if not columns:
+  c.execute('CREATE TABLE jobs(id INTEGER PRIMARY KEY,booking_key TEXT UNIQUE,job_no TEXT,day TEXT,booking_xml TEXT,title TEXT,postcode TEXT,start TEXT,finish TEXT,position INTEGER,details TEXT)')
+ elif 'booking_key' not in columns:
+  c.execute('ALTER TABLE jobs RENAME TO jobs_legacy')
+  c.execute('CREATE TABLE jobs(id INTEGER PRIMARY KEY,booking_key TEXT UNIQUE,job_no TEXT,day TEXT,booking_xml TEXT,title TEXT,postcode TEXT,start TEXT,finish TEXT,position INTEGER,details TEXT)')
+  c.execute("INSERT INTO jobs(id,booking_key,job_no,day,booking_xml,title,postcode,start,finish,position,details) SELECT id,job_no || ':' || day,job_no,day,booking_xml,title,postcode,start,finish,position,details FROM jobs_legacy")
+  c.execute('DROP TABLE jobs_legacy')
  c.execute('CREATE TABLE IF NOT EXISTS settings(k TEXT PRIMARY KEY,v TEXT)'); c.commit(); return c
 
 def postcode(s):
@@ -67,22 +74,33 @@ def nearest_ae(site_postcode):
   value=min(choices,key=lambda item:item[0])[1]; c=db(); c.execute('INSERT OR REPLACE INTO settings(k,v) VALUES(?,?)',(cache_key,value)); c.commit(); c.close(); return value
  except Exception: return fallback
 
+def booking_days(d):
+ days=[]
+ for value in d.get('Date',[]):
+  try: day=datetime.strptime(value,'%d-%m-%Y').date().isoformat()
+  except ValueError: continue
+  if day not in days: days.append(day)
+ return days or [datetime.now().date().isoformat()]
+
 def import_booking(raw):
  root=ET.fromstring(raw); rec=root.find('record')
- if rec is None: return None
- d=fields(rec); j=first(d,'Job No.','Job Number'); date=first(d,'Date')
- if not j: return None
- try: day=datetime.strptime(date,'%d-%m-%Y').date().isoformat()
- except: day=datetime.now().date().isoformat()
- addr=first(d,'Site Address'); company=first(d,'Company'); work=first(d,'Work Required'); title=(addr.splitlines()[0] if addr else company) or j
+ if rec is None: return []
+ d=fields(rec); j=first(d,'Job No.','Job Number')
+ if not j: return []
+ addr=first(d,'Site Address'); company=first(d,'Company'); title=(addr.splitlines()[0] if addr else company) or j
+ booking_id=first(d,'Booking ID')
  details=json.dumps({k:first(d,k) for k in ['Booking ID','Job No.','Division','Date','Company','Cust. Ref.','Site Address','Site Contact','Site Phone','Service','Work Required','A&A Resources','A&A Representative']})
- c=db(); existing=c.execute('SELECT id FROM jobs WHERE job_no=?',(j,)).fetchone()
- if existing:
-  c.execute('UPDATE jobs SET day=?,booking_xml=?,title=?,postcode=?,details=? WHERE job_no=?',(day,raw.decode('utf-8','replace'),title,postcode(addr),details,j))
- else:
-  pos=c.execute('SELECT COALESCE(MAX(position),0)+1 FROM jobs WHERE day=?',(day,)).fetchone()[0]
-  c.execute('INSERT INTO jobs(job_no,day,booking_xml,title,postcode,start,finish,position,details) VALUES(?,?,?,?,?,?,?,?,?)',(j,day,raw.decode('utf-8','replace'),title,postcode(addr),'09:00','10:00',pos,details))
- c.commit(); c.close(); return j
+ c=db(); added=[]
+ for day in booking_days(d):
+  booking_key=f'{j}:{booking_id or "visit"}:{day}'
+  existing=c.execute('SELECT id FROM jobs WHERE booking_key=?',(booking_key,)).fetchone()
+  if existing:
+   c.execute('UPDATE jobs SET booking_xml=?,title=?,postcode=?,details=? WHERE booking_key=?',(raw.decode('utf-8','replace'),title,postcode(addr),details,booking_key))
+  else:
+   pos=c.execute('SELECT COALESCE(MAX(position),0)+1 FROM jobs WHERE day=?',(day,)).fetchone()[0]
+   c.execute('INSERT INTO jobs(booking_key,job_no,day,booking_xml,title,postcode,start,finish,position,details) VALUES(?,?,?,?,?,?,?,?,?,?)',(booking_key,j,day,raw.decode('utf-8','replace'),title,postcode(addr),'09:00','10:00',pos,details))
+  added.append(j)
+ c.commit(); c.close(); return added
 
 def install_master(raw):
  root=ET.fromstring(raw); rec=root.find('record')
@@ -99,8 +117,8 @@ def scan_share_folder():
    if rec is None: raise ValueError('No record found')
    if len(rec.findall('field'))>=100: templates.append((path.stat().st_mtime,path,raw))
    else:
-    job=import_booking(raw)
-    if job: added.append(job)
+    jobs=import_booking(raw)
+    if jobs: added.extend(jobs)
     else: errors.append(f'{path.name}: not a recognised booking')
   except Exception: errors.append(f'{path.name}: could not be read')
  if templates:
@@ -141,8 +159,8 @@ def import_xml():
  added=[]
  for file in request.files.getlist('files'):
   try:
-   j=import_booking(file.read())
-   if j: added.append(j)
+   jobs=import_booking(file.read())
+   if jobs: added.extend(jobs)
   except Exception: pass
  return jsonify(added=added)
 
