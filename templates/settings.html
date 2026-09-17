@@ -25,6 +25,16 @@
       <button class="secondary wide" id="save">Save fallback</button>
     </section>
     <section class="card">
+      <h2>Day route planning</h2>
+      <p>Set the address where the working day starts and ends. The API key is optional unless you want the planner to optimise job order and calculate driving times.</p>
+      <label class="field">Home or start address<input id="route-home" placeholder="Home address or postcode" autocomplete="street-address"></label>
+      <label class="field">Google Routes API key<input id="route-key" type="password" autocomplete="new-password" placeholder="Paste Google Routes API key"></label>
+      <p class="help">Enable the Routes API in Google Cloud and restrict the key to that API. The key is stored only on this server and is never sent to the browser again.</p>
+      <button class="wide" id="route-save" type="button">Save route settings</button>
+      <button class="secondary wide" id="route-clear" type="button" hidden>Remove saved API key</button>
+      <div class="status" id="route-status" role="status">Loading route settings…</div>
+    </section>
+    <section class="card">
       <h2>Job photos · Immich</h2>
       <p>Find photos taken between each job’s saved arrival and departure times.</p>
       <form id="immich-form">
@@ -56,5 +66,6 @@
     document.querySelector('#save').onclick=async()=>{await fetch('/api/save',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({day:'',jobs:[],settings:{resources:resources.value}})});pop('Fallback saved')};load();if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js'));
   </script>
   <script src="/static/photo-settings.js"></script>
+  <script src="/static/route-settings.js"></script>
 </body>
 </html>

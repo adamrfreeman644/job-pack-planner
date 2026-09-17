@@ -15,6 +15,9 @@ Import bookings, set arrival and departure times, and download a pre-filled XML 
 - Look up a nearby emergency hospital when exporting a pack.
 - Open the app in a standalone browser window on supported browsers.
 - View Immich photos taken during a job in a clean, white fullscreen viewer.
+- Reorder a day by dragging job cards or using mobile-friendly up/down controls.
+- Open the current day as a multi-stop Google Maps route without an API key.
+- Optionally optimise job order with Google Routes, preserving locked appointments and showing driving-time warnings.
 
 ## Install with Docker on Unraid
 
@@ -77,6 +80,22 @@ These are fixed preparation rules, not an assessment of the work or site conditi
 On export, the app sends the site postcode to Postcodes.io, then queries OpenStreetMap through the Overpass API for emergency hospital locations within 80 km. It selects the nearest named result by straight-line distance and includes its postcode when available.
 
 Successful results are cached locally by site postcode. If the lookup fails or finds no suitable result, the field contains `Hospital`. The result is a best-effort suggestion and should be checked for the job.
+
+## Day route planning
+
+Every job card has up/down controls and a drag handle. Change the order, then press **Save day** to keep it. The lock button keeps an appointment in its current slot when automatic route planning is used. **Undo** restores the order that existed immediately before the latest manual move or automatic plan.
+
+**Open route** sends the currently displayed order to Google Maps. It works without a Google API key. Set **Settings → Day route planning → Home or start address** to make the route start and finish at home; otherwise the first and last jobs are used.
+
+For automatic optimisation:
+
+1. Create a Google Cloud project with billing enabled.
+2. Enable the **Routes API**.
+3. Create an API key restricted to the Routes API and, where practical, to the server's public IP.
+4. Save the key under **Settings → Day route planning**.
+5. Press **Plan route** on the planner.
+
+The key is stored in `planner.db`, is excluded from `/api/state`, and is used only by the server. Automatic planning supports up to 25 jobs. It returns the suggested order, total drive time and distance, per-leg figures, and warnings when the saved gap between jobs is shorter than the estimated drive. Traffic and roads change, so review the suggestion before pressing **Save day**.
 
 ## Job photos with Immich
 
