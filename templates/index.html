@@ -34,6 +34,7 @@
   </style>
   <link rel="stylesheet" href="/static/photos.css">
   <link rel="stylesheet" href="/static/route-planner.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
 <body>
   <header><a class="brand-home" href="/" aria-label="Job Pack Planner"><img class="wordmark" src="/static/logo.svg" alt="Job Pack Planner"><img class="app-mark" src="/static/icon.svg" alt=""></a><button class="photo-header" id="check-photos">Check photos</button><input class="date" type="date" id="day"><a class="icon-link" href="/settings" aria-label="Settings">⚙</a></header>
@@ -80,6 +81,7 @@
     day.onchange=render;load();if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js'));
   </script>
   <script src="/static/photos.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/static/route-planner.js"></script>
 </body>
 </html>
