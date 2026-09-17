@@ -13,7 +13,10 @@
   const storeLocks = () => localStorage.setItem('routeLocks', JSON.stringify([...locks]));
   function applyOrder(ids) {
     const rank = new Map(ids.map((id,index) => [Number(id),index]));
-    all.filter(job => rank.has(job.id)).forEach(job => { job.position = rank.get(job.id); });
+    const selected = new Map(all.filter(job => rank.has(job.id)).map(job => [job.id,job]));
+    const ordered = ids.map(id => selected.get(Number(id))).filter(Boolean);
+    ordered.forEach((job,index) => { job.position=index; });
+    all = [...all.filter(job => job.day !== day.value), ...ordered];
     render(); enhance();
   }
   function move(id, delta) {
