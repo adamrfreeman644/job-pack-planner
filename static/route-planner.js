@@ -6,14 +6,15 @@
   <div class="route-modal-head"><h2 id="route-title">Daily route</h2><button type="button" id="route-close" aria-label="Close route planner">×</button></div>
   <div class="route-modal-body">
    <div id="route-map" aria-label="Daily route map"></div>
-   <fieldset class="route-modes"><legend>Arrange the day</legend><label><input type="radio" name="route-mode" value="least" checked><strong>Least driving</strong><small>Shortest practical round trip</small></label><label><input type="radio" name="route-mode" value="furthest"><strong>Furthest first</strong><small>Start far away and work back towards home</small></label></fieldset>
+   <fieldset class="route-modes"><legend>Arrange the day</legend><label><input type="radio" name="route-mode" value="least" checked><strong>Least driving</strong><small>Shortest practical round trip</small></label><label><input type="radio" name="route-mode" value="furthest"><strong>Furthest first</strong><small>Start far away and work back towards home</small></label><label><input type="radio" name="route-mode" value="manual"><strong>Manual order</strong><small>Put the jobs in your preferred order</small></label></fieldset>
+   <section class="manual-route-order" id="manual-route-order" hidden><h3>Manual job order</h3><p>Pickups stay before these jobs and drop-offs stay afterwards.</p><ol id="manual-job-list"></ol></section>
    <section class="route-stops"><div class="route-section-head"><div><h3>Colleague collections</h3><p>Each colleague is picked up before the jobs and dropped home afterwards.</p></div><button type="button" id="route-add-stop">+ Add colleague</button></div><div id="route-stop-list"></div></section>
    <button type="button" id="route-arrange">Arrange route</button>
    <div id="route-status" role="status"></div><ol id="route-order"></ol>
   </div>
   <div class="route-modal-foot"><button type="button" class="secondary" id="route-cancel">Cancel</button><button type="button" id="route-apply" disabled>Save and apply route</button></div>
  </section>`);
- const planButton=document.getElementById('plan-route'), undoButton=document.getElementById('undo-route'), modal=document.getElementById('route-modal'), stopList=document.getElementById('route-stop-list'), routeOrder=document.getElementById('route-order'), routeStatus=document.getElementById('route-status'), applyButton=document.getElementById('route-apply');
+ const planButton=document.getElementById('plan-route'), undoButton=document.getElementById('undo-route'), modal=document.getElementById('route-modal'), stopList=document.getElementById('route-stop-list'), routeOrder=document.getElementById('route-order'), routeStatus=document.getElementById('route-status'), applyButton=document.getElementById('route-apply'), manualPanel=document.getElementById('manual-route-order'), manualList=document.getElementById('manual-job-list');
  const locks=new Set(JSON.parse(localStorage.getItem('routeLocks')||'[]')); let priorOrder=null, routeResult=null, draggedId=null, proposal=null, routeMap=null, routeLayer=null;
  const jobsForDay=()=>all.filter(job=>job.day===day.value).sort((a,b)=>a.position-b.position);
  const address=job=>{const details=JSON.parse(job.details||'{}');return details['Site Address']||job.postcode||''};
@@ -39,6 +40,8 @@
   row.querySelector('.stop-label').value=stop.label||'';row.querySelector('.stop-address').value=stop.address||'';row.querySelector('.stop-remove').onclick=()=>row.remove();stopList.append(row);
  }
  function stops(){return [...stopList.querySelectorAll('.route-stop-row')].map(row=>({id:row.dataset.stopId,type:'collection',label:row.querySelector('.stop-label').value.trim(),address:row.querySelector('.stop-address').value.trim()})).filter(stop=>stop.label||stop.address)}
+ function renderManual(ids=jobsForDay().map(job=>job.id)){const jobs=new Map(jobsForDay().map(job=>[job.id,job]));manualList.innerHTML=ids.map((id,index)=>{const job=jobs.get(Number(id));return `<li data-manual-id="${id}"><span class="route-number">${index+1}</span><strong>${esc(job?.job_no||id)} · ${esc(job?.title||'Job')}</strong><span class="manual-buttons"><button type="button" data-manual-move="-1" aria-label="Move job earlier">↑</button><button type="button" data-manual-move="1" aria-label="Move job later">↓</button></span></li>`}).join('')}
+ function manualIds(){return [...manualList.querySelectorAll('[data-manual-id]')].map(row=>Number(row.dataset.manualId))}
  function drawMap(result){
   if(!window.L||!result.geometry?.length){document.getElementById('route-map').textContent='Map preview unavailable. The stop order is still shown below.';return}
   if(!routeMap){routeMap=L.map('route-map');L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(routeMap)}
@@ -49,14 +52,16 @@
   routeStatus.textContent=`${result.distance_miles} miles · about ${result.duration_minutes} minutes driving`;drawMap(result);applyButton.disabled=false;
  }
  async function openPlanner(){
-  const jobs=jobsForDay();if(!jobs.length){pop('No jobs to plan for this date.');return}proposal=null;applyButton.disabled=true;routeOrder.innerHTML='';routeStatus.textContent='Choose how to arrange the route.';stopList.innerHTML='';modal.hidden=false;document.body.style.overflow='hidden';
+  const jobs=jobsForDay();if(!jobs.length){pop('No jobs to plan for this date.');return}proposal=null;applyButton.disabled=true;routeOrder.innerHTML='';routeStatus.textContent='Choose how to arrange the route.';stopList.innerHTML='';renderManual();manualPanel.hidden=true;document.querySelector('[name="route-mode"][value="least"]').checked=true;modal.hidden=false;document.body.style.overflow='hidden';
   try{const saved=await api('/api/route/day/'+day.value);(saved.stops||[]).forEach(addStop);if(saved.items?.length){proposal=saved;showProposal(saved)}}catch(error){routeStatus.textContent=error.message}
   setTimeout(()=>routeMap?.invalidateSize(),100);
  }
  function closePlanner(){modal.hidden=true;document.body.style.overflow='';planButton.focus()}
  document.getElementById('route-add-stop').onclick=()=>addStop();document.getElementById('route-close').onclick=closePlanner;document.getElementById('route-cancel').onclick=closePlanner;planButton.onclick=openPlanner;
+ document.querySelectorAll('[name="route-mode"]').forEach(input=>input.onchange=()=>{manualPanel.hidden=input.value!=='manual'||!input.checked;if(input.value==='manual'&&input.checked)renderManual(manualIds().length?manualIds():undefined)});
+ manualList.addEventListener('click',event=>{const button=event.target.closest('[data-manual-move]');if(!button)return;const row=button.closest('[data-manual-id]'),ids=manualIds(),from=ids.indexOf(Number(row.dataset.manualId)),to=from+Number(button.dataset.manualMove);if(to<0||to>=ids.length)return;[ids[from],ids[to]]=[ids[to],ids[from]];renderManual(ids)});
  document.getElementById('route-arrange').onclick=async event=>{const button=event.currentTarget,mode=document.querySelector('[name="route-mode"]:checked').value;button.disabled=true;button.textContent='Arranging…';routeStatus.textContent='Checking addresses and calculating the route…';applyButton.disabled=true;
-  try{proposal=await api('/api/route/plan',{day:day.value,job_ids:jobsForDay().map(job=>job.id),locked_ids:[...locks],stops:stops(),mode});showProposal(proposal)}catch(error){routeStatus.textContent=error.message}finally{button.disabled=false;button.textContent='Arrange route'}
+  try{proposal=await api('/api/route/plan',{day:day.value,job_ids:mode==='manual'?manualIds():jobsForDay().map(job=>job.id),locked_ids:mode==='manual'?[]:[...locks],stops:stops(),mode});showProposal(proposal)}catch(error){routeStatus.textContent=error.message}finally{button.disabled=false;button.textContent='Arrange route'}
  };
  applyButton.onclick=async()=>{if(!proposal)return;applyButton.disabled=true;applyButton.textContent='Saving…';try{const result=await api('/api/route/apply',proposal);priorOrder=jobsForDay().map(job=>job.id);routeResult=proposal;applyOrder(result.ordered_ids);undoButton.hidden=false;closePlanner();pop('Route saved and applied')}catch(error){routeStatus.textContent=error.message;applyButton.disabled=false}finally{applyButton.textContent='Save and apply route'}};
  async function googleRoute(){let saved;try{saved=await api('/api/route/day/'+day.value)}catch(_){saved=null}const items=saved?.items?.length?saved.items:jobsForDay().map(job=>({address:address(job)})),points=items.map(item=>item.address).filter(Boolean),home=settings.home_address||'';if(!points.length){pop('No route is available for this day.');return}const origin=home||points[0],destination=home||points.at(-1),waypoints=home?points:points.slice(1,-1),params=new URLSearchParams({api:'1',origin,destination,travelmode:'driving'});if(waypoints.length)params.set('waypoints',waypoints.join('|'));window.open('https://www.google.com/maps/dir/?'+params,'_blank','noopener')}
