@@ -26,10 +26,10 @@
     </section>
     <section class="card">
       <h2>Day route planning</h2>
-      <p>Set the address where the working day starts and ends. The API key is optional unless you want the planner to optimise job order and calculate driving times.</p>
+      <p>Set the address where the working day starts and ends. OpenRouteService arranges the stops and calculates driving time. Google Maps opens the saved order for navigation without a Google key.</p>
       <label class="field">Home or start address<input id="route-home" placeholder="Home address or postcode" autocomplete="street-address"></label>
-      <label class="field">Google Routes API key<input id="route-key" type="password" autocomplete="new-password" placeholder="Paste Google Routes API key"></label>
-      <p class="help">Enable the Routes API in Google Cloud and restrict the key to that API. The key is stored only on this server and is never sent to the browser again.</p>
+      <label class="field">OpenRouteService API key<input id="route-key" type="password" autocomplete="new-password" placeholder="Paste OpenRouteService API key"></label>
+      <p class="help">Create a free key at openrouteservice.org. The key is stored only on this server and is never sent to the browser. Google Maps does not need a key.</p>
       <button class="wide" id="route-save" type="button">Save route settings</button>
       <button class="secondary wide" id="route-clear" type="button" hidden>Remove saved API key</button>
       <div class="status" id="route-status" role="status">Loading route settings…</div>
