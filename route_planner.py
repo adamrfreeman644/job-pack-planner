@@ -151,8 +151,8 @@ def register_routes(app,db):
    job_start=pickups[-1]['coordinates'] if pickups else home; job_end=dropoffs[0]['coordinates'] if dropoffs else home
    proposed=sorted(job_items,key=lambda item:_haversine(home,item['coordinates']),reverse=True) if mode=='furthest' else list(job_items) if mode=='manual' else _least_driving(key,job_start,job_end,job_items)
    locked={f'job:{int(value)}' for value in data.get('locked_ids',[]) if str(value).isdigit()}; ordered_jobs=_keep_locked(job_items,proposed,locked); ordered=pickups+ordered_jobs+dropoffs; route=_directions(key,home,ordered)
-   public_items=[{k:v for k,v in item.items() if k!='coordinates'} for item in ordered]
-   return jsonify(day=day,mode=mode,items=public_items,stops=clean_stops,**route)
+   public_items=[dict(item) for item in ordered]
+   return jsonify(day=day,mode=mode,home_coordinates=home,items=public_items,stops=clean_stops,**route)
   return reply(action)
 
  @app.post('/api/route/apply')
@@ -167,7 +167,7 @@ def register_routes(app,db):
      except (KeyError,TypeError,ValueError): raise RouteError('The saved job order is invalid.')
    c=db()
    for position,job_id in enumerate(job_ids): c.execute('UPDATE jobs SET position=? WHERE id=? AND day=?',(position,job_id,day))
-   saved={'day':day,'mode':data.get('mode','least'),'items':items,'stops':stops,'duration_minutes':data.get('duration_minutes',0),'distance_miles':data.get('distance_miles',0),'legs':data.get('legs',[]),'geometry':data.get('geometry',[])}
+   saved={'day':day,'mode':data.get('mode','least'),'home_coordinates':data.get('home_coordinates',[]),'items':items,'stops':stops,'duration_minutes':data.get('duration_minutes',0),'distance_miles':data.get('distance_miles',0),'legs':data.get('legs',[]),'geometry':data.get('geometry',[])}
    c.execute('INSERT OR REPLACE INTO settings(k,v) VALUES(?,?)',('route_plan:'+day,json.dumps(saved))); c.commit(); c.close()
    return jsonify(ok=True,ordered_ids=job_ids)
   return reply(action)
