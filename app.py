@@ -98,7 +98,7 @@ def import_booking(raw):
    c.execute('UPDATE jobs SET booking_xml=?,title=?,postcode=?,details=? WHERE booking_key=?',(raw.decode('utf-8','replace'),title,postcode(addr),details,booking_key))
   else:
    pos=c.execute('SELECT COALESCE(MAX(position),0)+1 FROM jobs WHERE day=?',(day,)).fetchone()[0]
-   c.execute('INSERT INTO jobs(booking_key,job_no,day,booking_xml,title,postcode,start,finish,position,details) VALUES(?,?,?,?,?,?,?,?,?,?)',(booking_key,j,day,raw.decode('utf-8','replace'),title,postcode(addr),'09:00','10:00',pos,details))
+   c.execute('INSERT INTO jobs(booking_key,job_no,day,booking_xml,title,postcode,start,finish,position,details) VALUES(?,?,?,?,?,?,?,?,?,?)',(booking_key,j,day,raw.decode('utf-8','replace'),title,postcode(addr),'08:00','16:00',pos,details))
   added.append(j)
  c.commit(); c.close(); return added
 
