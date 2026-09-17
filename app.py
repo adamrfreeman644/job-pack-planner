@@ -1,26 +1,40 @@
 from flask import Flask, render_template, request, jsonify, send_file, send_from_directory
 from pathlib import Path
 from datetime import datetime
-import sqlite3, xml.etree.ElementTree as ET, io, re, json, os, math
+import sqlite3, xml.etree.ElementTree as ET, io, re, json, os, math, hashlib
 from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 app=Flask(__name__)
 DATA=Path(os.getenv('JOB_PACK_DATA','/data')); DATA.mkdir(parents=True,exist_ok=True)
 DB=DATA/'planner.db'; MASTER=DATA/'master.xml'
-SHARE=Path(os.getenv('JOB_PACK_SHARE','/imports'))
+SHARE=Path(os.getenv('JOB_PACK_SHARE','/impdef visit_key(raw,day):
+ text=raw.decode('utf-8','replace') if isinstance(raw,bytes) else str(raw or '')
+ return f'{hashlib.sha256(text.encode("utf-8")).hexdigest()}:{day}'
+
+def create_jobs_table(c):
+ c.execute('CREATE TABLE jobs(id INTEGER PRIMARY KEY,booking_key TEXT UNIQUE,job_no TEXT,day TEXT,booking_xml TEXT,title TEXT,postcode TEXT,start TEXT,finish TEXT,position INTEGER,details TEXT)')
 
 def db():
  c=sqlite3.connect(DB); c.row_factory=sqlite3.Row
  columns=[row['name'] for row in c.execute('PRAGMA table_info(jobs)')]
+ needs_migration='booking_key' not in columns
+ if not needs_migration and columns:
+  needs_migration=any(not re.fullmatch(r'[0-9a-f]{64}:\d{4}-\d{2}-\d{2}',row['booking_key'] or '') for row in c.execute('SELECT booking_key FROM jobs'))
  if not columns:
-  c.execute('CREATE TABLE jobs(id INTEGER PRIMARY KEY,booking_key TEXT UNIQUE,job_no TEXT,day TEXT,booking_xml TEXT,title TEXT,postcode TEXT,start TEXT,finish TEXT,position INTEGER,details TEXT)')
- elif 'booking_key' not in columns:
-  c.execute('ALTER TABLE jobs RENAME TO jobs_legacy')
-  c.execute('CREATE TABLE jobs(id INTEGER PRIMARY KEY,booking_key TEXT UNIQUE,job_no TEXT,day TEXT,booking_xml TEXT,title TEXT,postcode TEXT,start TEXT,finish TEXT,position INTEGER,details TEXT)')
-  c.execute("INSERT INTO jobs(id,booking_key,job_no,day,booking_xml,title,postcode,start,finish,position,details) SELECT id,job_no || ':' || day,job_no,day,booking_xml,title,postcode,start,finish,position,details FROM jobs_legacy")
+  create_jobs_table(c)
+ elif needs_migration:
+  rows=list(c.execute('SELECT * FROM jobs ORDER BY id'))
+  c.execute('ALTER TABLE jobs RENAME TO jobs_legacy'); create_jobs_table(c)
+  seen=set()
+  for row in rows:
+   key=visit_key(row['booking_xml'],row['day'])
+   if key in seen: continue
+   seen.add(key)
+   c.execute('INSERT INTO jobs(id,booking_key,job_no,day,booking_xml,title,postcode,start,finish,position,details) VALUES(?,?,?,?,?,?,?,?,?,?,?)',(row['id'],key,row['job_no'],row['day'],row['booking_xml'],row['title'],row['postcode'],row['start'],row['finish'],row['position'],row['details']))
   c.execute('DROP TABLE jobs_legacy')
  c.execute('CREATE TABLE IF NOT EXISTS settings(k TEXT PRIMARY KEY,v TEXT)'); c.commit(); return c
+eturn c
 
 def postcode(s):
  m=re.search(r'\b([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\b',s.upper()); return m.group(1) if m else ''
@@ -88,17 +102,17 @@ def import_booking(raw):
  d=fields(rec); j=first(d,'Job No.','Job Number')
  if not j: return []
  addr=first(d,'Site Address'); company=first(d,'Company'); title=(addr.splitlines()[0] if addr else company) or j
- booking_id=first(d,'Booking ID')
+ raw_text=raw.decode('utf-8','replace')
  details=json.dumps({k:first(d,k) for k in ['Booking ID','Job No.','Division','Date','Company','Cust. Ref.','Site Address','Site Contact','Site Phone','Service','Work Required','A&A Resources','A&A Representative']})
  c=db(); added=[]
  for day in booking_days(d):
-  booking_key=f'{j}:{booking_id or "visit"}:{day}'
-  existing=c.execute('SELECT id FROM jobs WHERE booking_key=?',(booking_key,)).fetchone()
+  key=visit_key(raw_text,day)
+  existing=c.execute('SELECT id FROM jobs WHERE booking_key=?',(key,)).fetchone()
   if existing:
-   c.execute('UPDATE jobs SET booking_xml=?,title=?,postcode=?,details=? WHERE booking_key=?',(raw.decode('utf-8','replace'),title,postcode(addr),details,booking_key))
+   c.execute('UPDATE jobs SET title=?,postcode=?,details=? WHERE booking_key=?',(title,postcode(addr),details,key))
   else:
    pos=c.execute('SELECT COALESCE(MAX(position),0)+1 FROM jobs WHERE day=?',(day,)).fetchone()[0]
-   c.execute('INSERT INTO jobs(booking_key,job_no,day,booking_xml,title,postcode,start,finish,position,details) VALUES(?,?,?,?,?,?,?,?,?,?)',(booking_key,j,day,raw.decode('utf-8','replace'),title,postcode(addr),'09:00','10:00',pos,details))
+   c.execute('INSERT INTO jobs(booking_key,job_no,day,booking_xml,title,postcode,start,finish,position,details) VALUES(?,?,?,?,?,?,?,?,?,?)',(key,j,day,raw_text,title,postcode(addr),'09:00','10:00',pos,details))
   added.append(j)
  c.commit(); c.close(); return added
 
