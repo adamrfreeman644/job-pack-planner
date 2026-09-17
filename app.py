@@ -20,7 +20,7 @@ def db():
   c.execute('CREATE TABLE jobs(id INTEGER PRIMARY KEY,booking_key TEXT UNIQUE,job_no TEXT,day TEXT,booking_xml TEXT,title TEXT,postcode TEXT,start TEXT,finish TEXT,position INTEGER,details TEXT)')
   c.execute("INSERT INTO jobs(id,booking_key,job_no,day,booking_xml,title,postcode,start,finish,position,details) SELECT id,job_no || ':' || day,job_no,day,booking_xml,title,postcode,start,finish,position,details FROM jobs_legacy")
   c.execute('DROP TABLE jobs_legacy')
- c.execute('CREATE TABLE IF NOT EXISTS settings(k TEXT PRIMARY KEY,v TEXT)'); c.commit(); return c
+ c.execute('CREATE TABLE IF NOT EXISTS settings(k TEXT PRIMARY KEY,v TEXT)'); c.execute('CREATE TABLE IF NOT EXISTS job_materials(job_id INTEGER PRIMARY KEY,materials TEXT NOT NULL DEFAULT \'\')'); c.commit(); return c
 
 def postcode(s):
  m=re.search(r'\b([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\b',s.upper()); return m.group(1) if m else ''
@@ -150,7 +150,7 @@ def settings_page(): return render_template('settings.html')
 
 @app.get('/api/state')
 def state():
- c=db(); jobs=[dict(x) for x in c.execute('SELECT * FROM jobs ORDER BY day,position,id')]
+ c=db(); jobs=[dict(x) for x in c.execute('SELECT jobs.*,COALESCE(job_materials.materials,\'\') AS materials FROM jobs LEFT JOIN job_materials ON job_materials.job_id=jobs.id ORDER BY jobs.day,jobs.position,jobs.id')]
  st={x['k']:x['v'] for x in c.execute('SELECT * FROM settings') if not x['k'].startswith('immich_') and not x['k'].startswith('route_') and x['k'] not in {'google_routes_api_key','openrouteservice_api_key'}}; c.close()
  return jsonify(jobs=jobs,settings=st,master=MASTER.exists())
 
@@ -176,6 +176,15 @@ def folder_status():
 
 @app.post('/api/folder/scan')
 def folder_scan(): return jsonify(scan_share_folder())
+
+@app.post('/api/jobs/<int:job_id>/materials')
+def save_materials(job_id):
+ body=request.get_json(silent=True) or {}; materials=str(body.get('materials','')).strip()
+ if len(materials)>2000: return jsonify(error='Materials text is too long.'),400
+ c=db()
+ if not c.execute('SELECT 1 FROM jobs WHERE id=?',(job_id,)).fetchone(): c.close(); return jsonify(error='Job not found.'),404
+ c.execute('INSERT OR REPLACE INTO job_materials(job_id,materials) VALUES(?,?)',(job_id,materials)); c.commit(); c.close()
+ return jsonify(ok=True,materials=materials)
 
 @app.post('/api/save')
 def save():
@@ -220,7 +229,7 @@ def export(job_id):
 
 @app.delete('/api/jobs/<int:job_id>')
 def delete(job_id):
- c=db(); c.execute('DELETE FROM jobs WHERE id=?',(job_id,)); c.commit(); c.close(); return jsonify(ok=True)
+ c=db(); c.execute('DELETE FROM job_materials WHERE job_id=?',(job_id,)); c.execute('DELETE FROM jobs WHERE id=?',(job_id,)); c.commit(); c.close(); return jsonify(ok=True)
 
 from photos import register_photos
 from route_planner import register_routes
