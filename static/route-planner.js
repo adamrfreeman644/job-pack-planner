@@ -15,7 +15,7 @@
   <div class="route-modal-foot"><button type="button" class="secondary" id="route-cancel">Cancel</button><button type="button" id="route-apply" disabled>Save and apply route</button></div>
  </section>`);
  const planButton=document.getElementById('plan-route'), modal=document.getElementById('route-modal'), stopList=document.getElementById('route-stop-list'), routeOrder=document.getElementById('route-order'), routeStatus=document.getElementById('route-status'), applyButton=document.getElementById('route-apply'), manualPanel=document.getElementById('manual-route-order'), manualList=document.getElementById('manual-job-list');
- const locks=new Set(JSON.parse(localStorage.getItem('routeLocks')||'[]')); let priorOrder=null, routeResult=null, draggedId=null, proposal=null, routeMap=null, routeLayer=null;
+ const locks=new Set(JSON.parse(localStorage.getItem('routeLocks')||'[]')); let priorOrder=null, routeResult=null, draggedId=null, proposal=null, routeMap=null, routeLayer=null, routeMarkers=null;
  const jobsForDay=()=>all.filter(job=>job.day===day.value).sort((a,b)=>a.position-b.position);
  const address=job=>{const details=JSON.parse(job.details||'{}');return details['Site Address']||job.postcode||''};
  const api=async(path,body)=>{const response=await fetch(path,body===undefined?{cache:'no-store'}:{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});const data=await response.json();if(!response.ok)throw new Error(data.error||'Route request failed.');return data};
@@ -43,7 +43,10 @@ timeline.addEventListener('dragstart',event=>{const row=event.target.closest('[d
  function drawMap(result){
   if(!window.L||!result.geometry?.length){document.getElementById('route-map').textContent='Map preview unavailable. The stop order is still shown below.';return}
   if(!routeMap){routeMap=L.map('route-map');L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(routeMap)}
-  if(routeLayer)routeLayer.remove();const latlngs=result.geometry.map(point=>[point[1],point[0]]);routeLayer=L.polyline(latlngs,{color:'#087f6d',weight:5}).addTo(routeMap);routeMap.fitBounds(routeLayer.getBounds(),{padding:[24,24]});setTimeout(()=>routeMap.invalidateSize(),50);
+  if(routeLayer)routeLayer.remove();if(routeMarkers)routeMarkers.remove();const latlngs=result.geometry.map(point=>[point[1],point[0]]);routeLayer=L.polyline(latlngs,{color:'#087f6d',weight:5}).addTo(routeMap);routeMarkers=L.layerGroup().addTo(routeMap);
+  const stops=[{label:'Home',coordinates:result.home_coordinates}].concat(result.items||[]);
+  stops.forEach((stop,index)=>{const coords=stop.coordinates;if(!Array.isArray(coords)||coords.length<2)return;const label=stop.label||'Home';const marker=L.marker([coords[1],coords[0]],{icon:L.divIcon({className:'route-pin-wrap',html:`<span class="route-pin"><span>${index===0?'H':index}</span></span>`,iconSize:[30,30],iconAnchor:[15,15])}).bindPopup(`<strong>${index===0?'Home':index+'. '+esc(label)}</strong><br>${esc(stop.address||'')}`);marker.addTo(routeMarkers)});
+  routeMap.fitBounds(routeLayer.getBounds(),{padding:[24,24]});setTimeout(()=>routeMap.invalidateSize(),50);
  }
  function showProposal(result){
   routeOrder.innerHTML=result.items.map((item,index)=>{const leg=(result.legs||[]).find(value=>value.to_key===item.key);return `<li><span class="route-number">${index+1}</span><div><strong>${esc(item.type==='pickup'?'Pickup · '+item.label:item.type==='dropoff'?'Drop-off · '+item.label:item.label)}</strong><small>${esc(item.address)}</small>${leg?`<em>${leg.duration_minutes} min · ${leg.distance_miles} miles from previous stop</em>`:''}</div></li>`}).join('');
