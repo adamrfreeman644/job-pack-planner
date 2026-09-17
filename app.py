@@ -133,7 +133,7 @@ def settings_page(): return render_template('settings.html')
 @app.get('/api/state')
 def state():
  c=db(); jobs=[dict(x) for x in c.execute('SELECT * FROM jobs ORDER BY day,position,id')]
- st={x['k']:x['v'] for x in c.execute('SELECT * FROM settings') if not x['k'].startswith('immich_')}; c.close()
+ st={x['k']:x['v'] for x in c.execute('SELECT * FROM settings') if not x['k'].startswith('immich_') and x['k'] != 'google_routes_api_key'}; c.close()
  return jsonify(jobs=jobs,settings=st,master=MASTER.exists())
 
 @app.post('/api/import')
@@ -202,6 +202,8 @@ def delete(job_id):
  c=db(); c.execute('DELETE FROM jobs WHERE id=?',(job_id,)); c.commit(); c.close(); return jsonify(ok=True)
 
 from photos import register_photos
+from route_planner import register_routes
 register_photos(app, db)
+register_routes(app, db)
 
 if __name__=='__main__': app.run(host='0.0.0.0',port=1976)
