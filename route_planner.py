@@ -46,14 +46,21 @@ def _haversine(a,b):
  value=sin(dlat/2)**2+cos(lat1)*cos(lat2)*sin(dlon/2)**2
  return 12742*asin(min(1,sqrt(value)))
 
-def _least_driving(key,home,items):
+def _least_driving(key,start,end,items):
  if len(items)<2: return list(items)
- data=_post('/optimization',key,{'jobs':[{'id':i+1,'location':item['coordinates']} for i,item in enumerate(items)],'vehicles':[{'id':1,'profile':'driving-car','start':home,'end':home}]})
+ data=_post('/optimization',key,{'jobs':[{'id':i+1,'location':item['coordinates']} for i,item in enumerate(items)],'vehicles':[{'id':1,'profile':'driving-car','start':start,'end':end}]})
  routes=data.get('routes',[]) if isinstance(data,dict) else []
  if not routes: raise RouteError('OpenRouteService did not return an optimised route.',422)
  ids=[step.get('job') for step in routes[0].get('steps',[]) if step.get('type')=='job']
  if len(ids)!=len(items): raise RouteError('OpenRouteService returned an incomplete stop order.',502)
  return [items[index-1] for index in ids]
+
+def _nearest_order(start,items):
+ remaining=list(items); ordered=[]; current=start
+ while remaining:
+  item=min(remaining,key=lambda value:_haversine(current,value['coordinates']))
+  remaining.remove(item); ordered.append(item); current=item['coordinates']
+ return ordered
 
 def _keep_locked(original,proposed,locked_keys):
  if not locked_keys: return proposed
@@ -123,21 +130,27 @@ def register_routes(app,db):
    if not key: raise RouteError('Add a free OpenRouteService API key in Settings first.',409)
    c=db(); placeholders=','.join('?' for _ in ids); rows=list(c.execute(f'SELECT * FROM jobs WHERE id IN ({placeholders})',ids)) if ids else []; c.close(); by_id={row['id']:row for row in rows}
    if len(by_id)!=len(ids): raise RouteError('One of these jobs no longer exists.',404)
-   items=[]
+   job_items=[]
    for job_id in ids:
     row=by_id[job_id]; details=json.loads(row['details'] or '{}'); address=(details.get('Site Address') or row['postcode'] or '').strip()
     if not address: raise RouteError(f"Job {row['job_no']} has no address.",422)
-    items.append({'key':f'job:{job_id}','type':'job','id':job_id,'label':row['job_no']+' · '+row['title'],'address':address})
+    job_items.append({'key':f'job:{job_id}','type':'job','id':job_id,'label':row['job_no']+' · '+row['title'],'address':address})
    clean_stops=[]
    for index,stop in enumerate(raw_stops):
     if not isinstance(stop,dict): raise RouteError('A pickup or drop-off is invalid.')
-    stop_id=re.sub(r'[^A-Za-z0-9_-]','',str(stop.get('id','')))[:80] or f'stop-{index+1}'; kind=stop.get('type') if stop.get('type') in {'pickup','dropoff'} else 'pickup'; label=str(stop.get('label','')).strip()[:120]; address=str(stop.get('address','')).strip()[:500]
-    if not label or not address: raise RouteError('Each pickup or drop-off needs a name and address.')
-    clean={'id':stop_id,'type':kind,'label':label,'address':address}; clean_stops.append(clean); items.append({'key':'stop:'+stop_id,**clean})
+    stop_id=re.sub(r'[^A-Za-z0-9_-]','',str(stop.get('id','')))[:80] or f'collection-{index+1}'; label=str(stop.get('label','')).strip()[:120]; address=str(stop.get('address','')).strip()[:500]
+    if not label or not address: raise RouteError('Each colleague collection needs a name and address.')
+    clean={'id':stop_id,'type':'collection','label':label,'address':address}; clean_stops.append(clean)
    home=_geocode(key,home_text,db)
-   for item in items: item['coordinates']=_geocode(key,item['address'],db)
-   proposed=sorted(items,key=lambda item:_haversine(home,item['coordinates']),reverse=True) if mode=='furthest' else _least_driving(key,home,items)
-   locked={f'job:{int(value)}' for value in data.get('locked_ids',[]) if str(value).isdigit()}; ordered=_keep_locked(items,proposed,locked); route=_directions(key,home,ordered)
+   for item in job_items: item['coordinates']=_geocode(key,item['address'],db)
+   collections=[]
+   for stop in clean_stops:
+    coordinates=_geocode(key,stop['address'],db); collections.append({**stop,'coordinates':coordinates})
+   pickups=_nearest_order(home,[{'key':'pickup:'+stop['id'],'type':'pickup','id':stop['id'],'label':stop['label'],'address':stop['address'],'coordinates':stop['coordinates']} for stop in collections])
+   dropoffs=[{'key':'dropoff:'+stop['id'],'type':'dropoff','id':stop['id'],'label':stop['label'],'address':stop['address'],'coordinates':stop['coordinates']} for stop in reversed(pickups)]
+   job_start=pickups[-1]['coordinates'] if pickups else home; job_end=dropoffs[0]['coordinates'] if dropoffs else home
+   proposed=sorted(job_items,key=lambda item:_haversine(home,item['coordinates']),reverse=True) if mode=='furthest' else _least_driving(key,job_start,job_end,job_items)
+   locked={f'job:{int(value)}' for value in data.get('locked_ids',[]) if str(value).isdigit()}; ordered_jobs=_keep_locked(job_items,proposed,locked); ordered=pickups+ordered_jobs+dropoffs; route=_directions(key,home,ordered)
    public_items=[{k:v for k,v in item.items() if k!='coordinates'} for item in ordered]
    return jsonify(day=day,mode=mode,items=public_items,stops=clean_stops,**route)
   return reply(action)

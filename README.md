@@ -85,7 +85,7 @@ Successful results are cached locally by site postcode. If the lookup fails or f
 
 Every job card has up/down controls and a drag handle. Change the order manually and press **Save day**, or press **Plan route** for the full-screen planner.
 
-The daily route planner offers **Least driving** and **Furthest first** modes. Pickup and drop-off entries can hold a colleague's name plus an address or postcode. They are saved for that date and included in routing, but do not create Job Packs. Locked job cards remain in their existing slots. Review the map, ordered stops, mileage and estimated driving time, then press **Save and apply route**.
+The daily route planner offers **Least driving** and **Furthest first** modes. Enter each colleague once with their name and home address or postcode. The planner automatically places their pickup before every job and their matching drop-off after every job. The day always starts and finishes at your saved home address. Collections are saved for that date and included in routing, but do not create Job Packs. Locked job cards remain in their existing slots. Review the map, ordered stops, mileage and estimated driving time, then press **Save and apply route**.
 
 Automatic planning uses the free OpenRouteService public API:
 

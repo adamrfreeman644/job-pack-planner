@@ -7,7 +7,7 @@
   <div class="route-modal-body">
    <div id="route-map" aria-label="Daily route map"></div>
    <fieldset class="route-modes"><legend>Arrange the day</legend><label><input type="radio" name="route-mode" value="least" checked><strong>Least driving</strong><small>Shortest practical round trip</small></label><label><input type="radio" name="route-mode" value="furthest"><strong>Furthest first</strong><small>Start far away and work back towards home</small></label></fieldset>
-   <section class="route-stops"><div class="route-section-head"><div><h3>Pickups and drop-offs</h3><p>Add colleague collections or other non-job stops.</p></div><button type="button" id="route-add-stop">+ Add stop</button></div><div id="route-stop-list"></div></section>
+   <section class="route-stops"><div class="route-section-head"><div><h3>Colleague collections</h3><p>Each colleague is picked up before the jobs and dropped home afterwards.</p></div><button type="button" id="route-add-stop">+ Add colleague</button></div><div id="route-stop-list"></div></section>
    <button type="button" id="route-arrange">Arrange route</button>
    <div id="route-status" role="status"></div><ol id="route-order"></ol>
   </div>
@@ -35,10 +35,10 @@
  timeline.addEventListener('drop',event=>{const target=event.target.closest('[data-route-id]');if(!target||draggedId===null)return;event.preventDefault();const ids=jobsForDay().map(job=>job.id),from=ids.indexOf(draggedId),to=ids.indexOf(Number(target.dataset.routeId));if(from<0||to<0||from===to)return;priorOrder=[...ids];ids.splice(to,0,ids.splice(from,1)[0]);undoButton.hidden=false;routeResult=null;applyOrder(ids)});
  function addStop(stop={}){
   const id=stop.id||((crypto.randomUUID&&crypto.randomUUID())||('stop-'+Date.now()+'-'+Math.random().toString(16).slice(2))),row=document.createElement('div');row.className='route-stop-row';row.dataset.stopId=id;
-  row.innerHTML=`<select aria-label="Stop type"><option value="pickup">Pickup</option><option value="dropoff">Drop-off</option></select><input class="stop-label" placeholder="Person or collection name" aria-label="Person or collection name"><input class="stop-address" placeholder="Postcode or address" aria-label="Pickup or drop-off address"><button type="button" class="stop-remove" aria-label="Remove stop">×</button>`;
-  row.querySelector('select').value=stop.type||'pickup';row.querySelector('.stop-label').value=stop.label||'';row.querySelector('.stop-address').value=stop.address||'';row.querySelector('.stop-remove').onclick=()=>row.remove();stopList.append(row);
+  row.innerHTML=`<span class="collection-pair">Pickup + drop-off</span><input class="stop-label" placeholder="Colleague name" aria-label="Colleague name"><input class="stop-address" placeholder="Home postcode or address" aria-label="Colleague home address"><button type="button" class="stop-remove" aria-label="Remove colleague">×</button>`;
+  row.querySelector('.stop-label').value=stop.label||'';row.querySelector('.stop-address').value=stop.address||'';row.querySelector('.stop-remove').onclick=()=>row.remove();stopList.append(row);
  }
- function stops(){return [...stopList.querySelectorAll('.route-stop-row')].map(row=>({id:row.dataset.stopId,type:row.querySelector('select').value,label:row.querySelector('.stop-label').value.trim(),address:row.querySelector('.stop-address').value.trim()})).filter(stop=>stop.label||stop.address)}
+ function stops(){return [...stopList.querySelectorAll('.route-stop-row')].map(row=>({id:row.dataset.stopId,type:'collection',label:row.querySelector('.stop-label').value.trim(),address:row.querySelector('.stop-address').value.trim()})).filter(stop=>stop.label||stop.address)}
  function drawMap(result){
   if(!window.L||!result.geometry?.length){document.getElementById('route-map').textContent='Map preview unavailable. The stop order is still shown below.';return}
   if(!routeMap){routeMap=L.map('route-map');L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(routeMap)}
