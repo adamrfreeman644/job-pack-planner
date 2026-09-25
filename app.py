@@ -20,7 +20,7 @@ def db():
   c.execute('CREATE TABLE jobs(id INTEGER PRIMARY KEY,booking_key TEXT UNIQUE,job_no TEXT,day TEXT,booking_xml TEXT,title TEXT,postcode TEXT,start TEXT,finish TEXT,position INTEGER,details TEXT)')
   c.execute("INSERT INTO jobs(id,booking_key,job_no,day,booking_xml,title,postcode,start,finish,position,details) SELECT id,job_no || ':' || day,job_no,day,booking_xml,title,postcode,start,finish,position,details FROM jobs_legacy")
   c.execute('DROP TABLE jobs_legacy')
- c.execute('CREATE TABLE IF NOT EXISTS settings(k TEXT PRIMARY KEY,v TEXT)'); c.execute('CREATE TABLE IF NOT EXISTS job_materials(job_id INTEGER PRIMARY KEY,materials TEXT NOT NULL DEFAULT \'\')'); c.commit(); return c
+ c.execute('CREATE TABLE IF NOT EXISTS settings(k TEXT PRIMARY KEY,v TEXT)'); c.execute('CREATE TABLE IF NOT EXISTS day_settings(day TEXT PRIMARY KEY,leave_home TEXT NOT NULL,return_home TEXT NOT NULL)'); c.execute('CREATE TABLE IF NOT EXISTS job_materials(job_id INTEGER PRIMARY KEY,materials TEXT NOT NULL DEFAULT \'\')'); c.commit(); return c
 
 def postcode(s):
  m=re.search(r'\b([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\b',s.upper()); return m.group(1) if m else ''
@@ -151,8 +151,9 @@ def settings_page(): return render_template('settings.html')
 @app.get('/api/state')
 def state():
  c=db(); jobs=[dict(x) for x in c.execute('SELECT jobs.*,COALESCE(job_materials.materials,\'\') AS materials FROM jobs LEFT JOIN job_materials ON job_materials.job_id=jobs.id ORDER BY jobs.day,jobs.position,jobs.id')]
- st={x['k']:x['v'] for x in c.execute('SELECT * FROM settings') if not x['k'].startswith('immich_') and not x['k'].startswith('route_') and x['k'] not in {'google_routes_api_key','openrouteservice_api_key'}}; c.close()
- return jsonify(jobs=jobs,settings=st,master=MASTER.exists())
+ st={x['k']:x['v'] for x in c.execute('SELECT * FROM settings') if not x['k'].startswith('immich_') and not x['k'].startswith('route_') and x['k'] not in {'google_routes_api_key','openrouteservice_api_key'}}
+ day_settings={x['day']:{'leave_home':x['leave_home'],'return_home':x['return_home']} for x in c.execute('SELECT * FROM day_settings')}; c.close()
+ return jsonify(jobs=jobs,settings=st,day_settings=day_settings,master=MASTER.exists())
 
 @app.post('/api/import')
 def import_xml():
@@ -190,8 +191,11 @@ def save_materials(job_id):
 def save():
  body=request.json; c=db()
  for i,j in enumerate(body['jobs']): c.execute('UPDATE jobs SET day=?,start=?,finish=?,position=? WHERE id=?',(body['day'],j['start'],j['finish'],i,j['id']))
- for k,v in body.get('settings',{}).items():
-  if k in {'leave_home','return_home','resources','rams'}: c.execute('INSERT OR REPLACE INTO settings(k,v) VALUES(?,?)',(k,str(v)))
+ times=body.get('settings',{})
+ if 'leave_home' in times and 'return_home' in times:
+  c.execute('INSERT OR REPLACE INTO day_settings(day,leave_home,return_home) VALUES(?,?,?)',(body['day'],str(times['leave_home']),str(times['return_home'])))
+ for k,v in times.items():
+  if k in {'resources','rams'}: c.execute('INSERT OR REPLACE INTO settings(k,v) VALUES(?,?)',(k,str(v)))
  c.commit(); c.close(); return jsonify(ok=True)
 
 def set_occurrences(rec,name,value):
@@ -205,11 +209,11 @@ def set_occurrence_values(rec,name,values):
 @app.get('/api/export/<int:job_id>')
 def export(job_id):
  if not MASTER.exists(): return jsonify(error='Upload a completed reference XML in Settings first'),400
- c=db(); job=c.execute('SELECT * FROM jobs WHERE id=?',(job_id,)).fetchone(); jobs=list(c.execute('SELECT * FROM jobs WHERE day=? ORDER BY position,id',(job['day'],))); st={x['k']:x['v'] for x in c.execute('SELECT * FROM settings')}; c.close()
+ c=db(); job=c.execute('SELECT * FROM jobs WHERE id=?',(job_id,)).fetchone(); jobs=list(c.execute('SELECT * FROM jobs WHERE day=? ORDER BY position,id',(job['day'],))); st={x['k']:x['v'] for x in c.execute('SELECT * FROM settings')}; day_times=c.execute('SELECT leave_home,return_home FROM day_settings WHERE day=?',(job['day'],)).fetchone(); c.close()
  materials=request.args.get('materials','').strip()
  if len(materials)>2000: return jsonify(error='Materials text is too long.'),400
  materials_value=f'CEF:\n{materials}' if materials else ''
- i=next(n for n,x in enumerate(jobs) if x['id']==job_id); prev=st.get('leave_home','') if i==0 else jobs[i-1]['finish']; nxt=st.get('return_home','') if i==len(jobs)-1 else jobs[i+1]['start']
+ i=next(n for n,x in enumerate(jobs) if x['id']==job_id); prev=(day_times['leave_home'] if day_times else st.get('leave_home','')) if i==0 else jobs[i-1]['finish']; nxt=(day_times['return_home'] if day_times else st.get('return_home','')) if i==len(jobs)-1 else jobs[i+1]['start']
  root=ET.parse(MASTER).getroot(); rec=root.find('record'); d=json.loads(job['details']); rec.set('name',f"{job['job_no']} {job['day'].replace('-','/')}")
  long_date=datetime.strptime(job['day'],'%Y-%m-%d').strftime('%d %B %Y')
  resource_text=d.get('A&A Resources') or st.get('resources','Adam Freeman, Peter Bennett, RA25 TLZ'); engineers=assigned_engineers(resource_text)
