@@ -53,6 +53,10 @@ The Compose configuration mounts `./data` as `/data` and the configured import f
 
 **Save XML** uses the last saved times; it does not save unsaved timeline edits. Leave-home and return-home times are shared settings across dates, while arrival and departure times are stored per job.
 
+### Remove a missed job
+
+Press **Delete job pack** on the job card and confirm the job and date. This immediately removes that visit and its saved materials, including after a refresh. Other dates for the same job, original XML files and Immich photos are kept. Any saved route for the day needs replanning; colleague collections are retained. Re-importing or scanning the original booking can add the visit again.
+
 ## Imports and templates
 
 The shared-folder scanner checks files ending in `.xml` recursively. It treats the first record with at least 100 fields as a completed Job Pack example; files with fewer fields are passed to the booking importer. If several examples exist, the most recently modified one replaces the master template on each scan.

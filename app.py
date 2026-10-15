@@ -233,7 +233,24 @@ def export(job_id):
 
 @app.delete('/api/jobs/<int:job_id>')
 def delete(job_id):
- c=db(); c.execute('DELETE FROM job_materials WHERE job_id=?',(job_id,)); c.execute('DELETE FROM jobs WHERE id=?',(job_id,)); c.commit(); c.close(); return jsonify(ok=True)
+ c=db()
+ try:
+  with c:
+   job=c.execute('SELECT day FROM jobs WHERE id=?',(job_id,)).fetchone()
+   if job is None: return jsonify(error='Job not found.'),404
+   c.execute('DELETE FROM job_materials WHERE job_id=?',(job_id,))
+   c.execute('DELETE FROM jobs WHERE id=?',(job_id,))
+   if c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='photo_checks'").fetchone():
+    c.execute('DELETE FROM photo_checks WHERE job_id=?',(job_id,))
+   # A route through the deleted visit is stale; keep colleague collections for replanning.
+   route_key='route_plan:'+job['day']
+   route=c.execute('SELECT v FROM settings WHERE k=?',(route_key,)).fetchone()
+   if route:
+    try: stops=json.loads(route['v']).get('stops',[])
+    except (ValueError,TypeError,AttributeError): stops=[]
+    c.execute('UPDATE settings SET v=? WHERE k=?',(json.dumps({'day':job['day'],'stops':stops,'items':[]}),route_key))
+  return jsonify(ok=True)
+ finally: c.close()
 
 from photos import register_photos
 from route_planner import register_routes
