@@ -158,7 +158,10 @@ def service_worker():
  return response
 
 @app.get('/settings')
-def settings_page(): return render_template('settings.html')
+def settings_page(): return '', 302, {'Location': '/#settings'}
+
+@app.get('/archive/focalpoint-xml-integration/settings')
+def focalpoint_xml_settings(): return render_template('settings.html')
 
 @app.get('/api/state')
 def state():
