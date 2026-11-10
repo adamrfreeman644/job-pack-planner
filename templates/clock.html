@@ -13,11 +13,11 @@ main:has(#capture-panel:not([hidden])){height:100dvh;min-height:0;padding-top:12
 #capture-panel .actions button+button{min-height:36px}
 #capture-panel #status,#capture-panel #photo-feedback,#capture-panel #leave-wait{font-size:13px;line-height:1.2}
 @media(max-height:450px){.clock-time{margin-top:5px;padding-block:3px}#event-time{min-height:36px}.bottom button{padding-block:8px}}
-#immich-form .field input{display:block;width:100%;padding:10px;border:1px solid #cbbce3;border-radius:9px;margin-top:4px}#immich-form button{margin:4px 4px 4px 0}</style>
+#immich-form .field input{display:block;width:100%;padding:10px;border:1px solid #cbbce3;border-radius:9px;margin-top:4px}#immich-form button{margin:4px 4px 4px 0}#upload-qr{border:0;border-radius:18px;padding:20px;max-width:90vw;text-align:center}#upload-qr::backdrop{background:#211b3566}#upload-qr img{max-width:100%;height:auto;margin:10px auto}</style>
 <main>
 <section class="capture" id="capture-panel" aria-label="Record work times"><div class="actions" id="actions"></div><div class="clock-time" id="clock-time"><button id="event-time" type="button" aria-label="Edit time to record" aria-haspopup="dialog"></button><button id="live-time" type="button" hidden>Use live time</button></div>
 <dialog id="time-picker" aria-label="Edit time to record"><form method="dialog"><div class="wheel-head"><span>Hours</span><span>Minutes</span></div><div class="wheels"><select id="hours" aria-label="Hours" size="5"></select><select id="minutes" aria-label="Minutes" size="5"></select></div><div class="wheel-actions"><button value="cancel">Cancel</button><button value="set">Set time</button></div></form></dialog><small id="leave-wait" hidden>Leave job is available two minutes after arrival.</small><p id="status" role="status"></p><small id="photo-feedback" aria-live="polite"></small></section>
-<section id="settings-panel" hidden><label class="weekends"><input id="weekends" type="checkbox"> Show weekends</label><p id="legacy-status">Loading legacy jobs…</p><strong>Job photos from Immich</strong><p class="muted" id="photo-status"></p><form id="immich-form">
+<section id="settings-panel" hidden><p><button id="upload-qr-button" type="button">Photo upload QR</button></p><label class="weekends"><input id="weekends" type="checkbox"> Show weekends</label><p id="legacy-status">Loading legacy jobs…</p><strong>Job photos from Immich</strong><p class="muted" id="photo-status"></p><form id="immich-form">
         <label class="field">Immich address<input id="immich-url" type="url" placeholder="http://your-immich-server:2283" autocomplete="url"></label>
         <label class="field">API key<input id="immich-key" type="password" autocomplete="new-password" placeholder="Enter an Immich API key"></label>
         <p class="help" id="immich-key-help">The key stays on this server and is never displayed again.</p>
@@ -31,10 +31,12 @@ main:has(#capture-panel:not([hidden])){height:100dvh;min-height:0;padding-top:12
 <section id="calendar-panel" hidden><div class="month"><button id="prev" aria-label="Previous week">‹</button><strong id="month"></strong><button id="today">Today</button><button id="next" aria-label="Next week">›</button></div><div id="calendar"></div><div id="day"></div></section>
 <nav class="bottom" aria-label="Planner views"><button id="capture-tab" aria-pressed="true">Clock</button><button id="calendar-tab" aria-pressed="false">Calendar</button><button id="settings-tab" aria-pressed="false">Settings</button></nav>
 </main>
+<dialog id="upload-qr" aria-label="Upload work photos"><h2>Upload work photos</h2><img src="/static/photo-upload-qr.svg" alt="QR code for https://workphotos.ad53app.com" width="300" height="300"><p><a href="https://workphotos.ad53app.com" target="_blank" rel="noopener">Open photo upload</a></p><form method="dialog"><button>Close</button></form></dialog>
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
 const key = 'work-planner-demo-v1';
+$('upload-qr-button').onclick = () => $('upload-qr').showModal();
 function dateKey(date) {
   return [date.getFullYear(), String(date.getMonth()+1).padStart(2,'0'), String(date.getDate()).padStart(2,'0')].join('-');
 }
