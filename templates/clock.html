@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Work Planner</title><link rel="manifest" href="/static/manifest.webmanifest">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#edf3f1;color:#102d2a;font:16px system-ui}main{max-width:760px;margin:auto;padding:22px}h1{margin:0}header p,.muted,small{color:#46635d}section{background:white;border-radius:18px;padding:20px;margin:16px 0}button,input{font:inherit}button{cursor:pointer;border:0;border-radius:10px;padding:12px;background:#e1eeea;color:#102d2a}button:focus-visible,input:focus-visible{outline:3px solid #c47b00;outline-offset:2px}.actions{display:flex;gap:10px}.actions button{flex:1;min-height:94px;font-size:clamp(17px,4vw,26px);font-weight:750;background:#006052;color:white}.actions button+button{background:#dcece7;color:#102d2a}#calendar{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;text-align:center}#calendar button{padding:8px 0;min-height:43px}#calendar button[aria-pressed=true]{background:#006052;color:white}.has-data{font-weight:bold}.month{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}details{background:#edf3f1;padding:12px;border-radius:9px;margin:8px 0}summary{cursor:pointer}img{max-width:100%;max-height:320px;display:block;margin:8px 0}#status{min-height:1.5em}figure{margin:12px 0}label{display:block;margin-top:10px}input[type=file]{max-width:100%}
+main{min-height:100dvh;display:flex;flex-direction:column;padding-bottom:88px}.capture{flex:1;display:flex;flex-direction:column;min-height:62dvh}.actions{flex:1;flex-direction:column}.actions button{font-size:clamp(30px,8vw,70px);min-height:42dvh}.actions button+button{flex:none;min-height:56px;font-size:20px}.bottom{position:fixed;bottom:0;left:0;right:0;display:flex;justify-content:center;gap:8px;padding:10px 10px max(10px,env(safe-area-inset-bottom));background:#edf3f1;border-top:1px solid #cbded8}.bottom button{font-size:14px;flex:1;max-width:130px}.bottom button[aria-pressed=true]{background:#006052;color:white}[hidden]{display:none!important}
+.capture{margin:0;background:transparent;padding:0}.capture p:empty,.capture small:empty{display:none}.capture p{margin:10px 0 0}.capture small{margin-top:6px}body{background:#f4f2fa;color:#211b35}.bottom{background:#faf8ff;border-color:#e1daef}.bottom button{background:#eee8f8;color:#392460}.bottom button[aria-pressed=true]{background:#5935a5;color:white}.actions[data-phase=start] button{background:#5935a5}.actions[data-phase=travel] button{background:#075d9d}.actions[data-phase=onsite] button{background:#a44715}.actions[data-phase=travel] button+button{background:#d8f2e6;color:#154d36}#calendar button[aria-pressed=true]{background:#5935a5}#day details{background:#eaf3fd;border-left:5px solid #2876b5}#day details:nth-of-type(2){background:#f1eafa;border-color:#8053bc}#day details:nth-of-type(3){background:#fff1df;border-color:#bd691e}#day details:nth-of-type(4n){background:#e2f4eb;border-color:#258157}
+.weekends{margin:0 0 12px;font-size:14px;color:#46635d}#calendar{grid-template-columns:repeat(var(--days,5),minmax(0,1fr));gap:6px}#calendar button{min-height:48px}#calendar button.logged{box-shadow:inset 0 -4px #258157}#calendar button.sample{box-shadow:inset 0 -4px #a44715}.job-dots{display:flex;flex-wrap:wrap;justify-content:center;gap:3px;margin:4px auto 0;padding:0 4px}.job-dots span{width:5px;height:5px;border-radius:50%;background:currentColor}.day-time{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 16px;margin:12px 0;border-radius:12px;font-weight:750;font-size:18px}.day-time strong{font-size:clamp(18px,3.5vw,22px);font-variant-numeric:tabular-nums}.day-time.departure{background:#5935a5;color:white}.day-time.return{background:#146343;color:white}.job-summary{padding:4px 0;font-size:18px;font-weight:750}.job-times{display:block;font-size:clamp(18px,3.5vw,22px);font-variant-numeric:tabular-nums;line-height:1.2;margin-top:5px}.job-summary{display:block;list-style:none}.job-summary::marker{content:""}.job-summary::-webkit-details-marker{display:none}.job-name{display:block;overflow-wrap:anywhere}.job-footer{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;margin-top:7px}.job-footer .job-times{margin-top:0}.photo-count{flex:none;display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;background:#e2d6f4;color:#4b287d;font-size:13px;font-weight:750;line-height:1.25;font-variant-numeric:tabular-nums}.photo-count::before{content:"";width:14px;height:14px;background:currentColor;mask:center/contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='16' rx='3'/%3E%3Ccircle cx='9' cy='9' r='1'/%3E%3Cpath d='m4 17 5-4 3 2 4-5 5 5'/%3E%3C/svg%3E")}
+.bottom{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,2fr) minmax(0,1fr);justify-content:normal}.bottom button{width:100%;max-width:none;min-width:0;padding-inline:2px}.clock-time{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;margin-top:10px;font-size:14px}.clock-time input{padding:7px;border:1px solid #cbbce3;border-radius:9px;background:white;color:#392460;font-weight:750}.clock-time button{padding:7px;font-size:13px}</style>
+<main>
+<section class="capture" id="capture-panel" aria-label="Record work times"><div class="actions" id="actions"></div><label class="clock-time" id="clock-time"><span>Record time</span><input id="event-time" type="time" aria-label="Time to record"><button id="live-time" type="button" hidden>Use live time</button></label><p id="status" role="status"></p><small id="photo-feedback" aria-live="polite"></small></section>
+<section id="settings-panel" hidden><label class="weekends"><input id="weekends" type="checkbox"> Show weekends</label><p id="legacy-status">Loading legacy jobs…</p><strong>Job photos from Immich</strong><p><a href="/settings">Immich settings</a></p><p class="muted" id="photo-status"></p></section>
+<section id="calendar-panel" hidden><div class="month"><button id="prev" aria-label="Previous week">‹</button><strong id="month"></strong><button id="today">Today</button><button id="next" aria-label="Next week">›</button></div><div id="calendar"></div><div id="day"></div></section>
+<nav class="bottom" aria-label="Planner views"><button id="capture-tab" aria-pressed="true">Clock</button><button id="calendar-tab" aria-pressed="false">Calendar</button><button id="settings-tab" aria-pressed="false">Settings</button></nav>
+</main>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const key = 'work-planner-demo-v1';
+function dateKey(date) {
+  return [date.getFullYear(), String(date.getMonth()+1).padStart(2,'0'), String(date.getDate()).padStart(2,'0')].join('-');
+}
+const time = stamp => new Date(stamp).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',hour12:false});
+let days = {};
+try { days = JSON.parse(localStorage.getItem(key) || '{}'); } catch {}
+let selected = dateKey(new Date());
+let month = new Date(selected+'T12:00:00');
+const legacyDays = {};
+const calendarDay = date => {
+  const old = legacyDays[date];
+  const current = days[date];
+  if (old && current) return {...current, jobs:[...old.jobs,...current.jobs]};
+  return current ?? old;
+};
+async function loadLegacy() {
+  try {
+    const response = await fetch('/api/legacy');
+    if (!response.ok) throw new Error();
+    const rows = await response.json();
+    for (const row of rows) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(row.day)) continue;
+      const day = legacyDays[row.day] ??= {date:row.day, jobs:[], legacy:true};
+      day.jobs.push({name:[row.title,row.postcode,row.job_no].filter(Boolean).join(' · '),
+        legacy:true, legacyStart:row.start, legacyEnd:row.finish, photos:[]});
+    }
+    $('legacy-status').textContent = rows.length ? rows.length+' legacy jobs loaded.' : 'No legacy database loaded.';
+    render();
+  } catch {
+    $('legacy-status').textContent = 'Could not load legacy jobs.';
+  }
+}
+const connected = true;
+function photoStatus(message) {
+  $('photo-feedback').textContent = message;
+}
+async function checkPhotos(job) {
+  if (!connected) return;
+  photoStatus('Checking Immich for this visit…');
+  try {
+    const response = await fetch('/api/clock/photos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({start:job.start.time,end:job.end.time})});
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error);
+    job.photos = result.map(photo => ({name:time(photo.taken), data:photo.url}));
+    localStorage.setItem(key, JSON.stringify(days));
+    photoStatus(job.photos.length+' Immich photo(s) attached.');
+    render();
+  } catch (error) {
+    photoStatus('Immich check failed: '+error.message);
+  }
+}
+const active = () => Object.values(days).find(day => !day.home);
+function save(message) {
+  try { localStorage.setItem(key, JSON.stringify(days)); $('status').textContent = message; }
+  catch { $('status').textContent = 'Browser storage is full or unavailable. This change is only saved for the current page session.'; }
+}
+function node(tag, value) {
+  const element = document.createElement(tag);
+  element.textContent = value;
+  return element;
+}
+function button(label, handler) {
+  const element = node('button', label);
+  element.onclick = handler;
+  return element;
+}
+let manualTime = false;
+const timeInput = $('event-time');
+function syncLiveTime() {
+  if (manualTime || document.activeElement === timeInput) return;
+  const now = new Date();
+  timeInput.value = [now.getHours(),now.getMinutes()].map(part=>String(part).padStart(2,'0')).join(':');
+}
+function resetLiveTime() {
+  manualTime = false;
+  $('live-time').hidden = true;
+  syncLiveTime();
+}
+timeInput.oninput = () => { manualTime = true; $('live-time').hidden = false; };
+$('live-time').onclick = resetLiveTime;
+syncLiveTime();
+setInterval(syncLiveTime, 1000);
+function stamp(day, type) {
+
+  const now = Date.now();
+  const event = {time:manualTime ? new Date(dateKey(new Date(now))+'T'+timeInput.value).getTime() : now};
+  const lastJob = day?.jobs.at(-1);
+  const previous = lastJob?.end ?? lastJob?.start ?? day?.start;
+  if (!Number.isFinite(event.time) || event.time > now || event.time < (previous?.time ?? 0)) {
+    $('status').textContent = 'Choose a time between your last recorded action and now.';
+    return;
+  }
+  resetLiveTime();
+  if (type==='start') {
+    const date = dateKey(new Date(event.time));
+    if (days[date]) return;
+    day = days[date] = {date,start:event,jobs:[]};
+  }
+  if (type==='arrive') day.jobs.push({start:event,photos:[]});
+  if (type==='leave') day.jobs.at(-1).end = event;
+  if (type==='home') day.home = event;
+  selected = day.date;
+  month = new Date(selected+'T12:00:00');
+  save('Saved at '+time(event.time)+'.');
+  render();
+  if (!['arrive','leave'].includes(type)) return;
+  if (type==='leave') checkPhotos(day.jobs.at(-1));
+  if (!navigator.geolocation) {
+    $('status').textContent = 'Time saved. GPS is unavailable.';
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(({coords}) => {
+    event.gps = {lat:coords.latitude,lon:coords.longitude,accuracy:coords.accuracy};
+    save('GPS saved for '+time(event.time)+'.');
+    render();
+  }, () => { $('status').textContent = 'Time saved. GPS was unavailable or permission was denied.'; },
+  {enableHighAccuracy:true,timeout:10000,maximumAge:0});
+}
+function render() {
+  const today = dateKey(new Date());
+  const current = active();
+  const actions = $('actions');
+  actions.replaceChildren();
+  $('clock-time').hidden = !current && Boolean(days[today]);
+  if (!current) {
+    if (days[today]) actions.append(node('strong','Today is complete'));
+    else actions.append(button('Leave HOME', () => stamp(null,'start')));
+  } else if (current.jobs.at(-1) && !current.jobs.at(-1).end) {
+    actions.append(button('Leave job', () => stamp(current,'leave')));
+  } else {
+    actions.append(button('Arrived onsite', () => stamp(current,'arrive')));
+    if (current.jobs.length) actions.append(button('Home', () => stamp(current,'home')));
+  }
+  const weekStart = new Date(month);
+  weekStart.setDate(month.getDate() - (month.getDay()+6)%7);
+  const grid = $('calendar');
+  const weekends = $('weekends').checked;
+  const labels = weekends ? ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] : ['Mon','Tue','Wed','Thu','Fri'];
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate()+labels.length-1);
+  const format = new Intl.DateTimeFormat(undefined,{day:'numeric',month:'short'});
+  $('month').textContent = format.formatRange(weekStart,weekEnd);
+  grid.style.setProperty('--days', labels.length);
+  grid.replaceChildren(...labels.map(label=>node('small',label)));
+  for(let i=0;i<labels.length;i++) {
+    const day = new Date(weekStart);
+    day.setDate(weekStart.getDate()+i);
+    const date=dateKey(day);
+    const entry=calendarDay(date);
+    const cell=button(String(day.getDate()),()=>{selected=date;render();});
+    const count = entry?.jobs.length ?? 0;
+    if (count) {
+      const dots = node('span','');
+      dots.className = 'job-dots';
+      dots.setAttribute('aria-hidden','true');
+      for(let j=0;j<count;j++) dots.append(node('span',''));
+      cell.append(dots);
+    }
+    if(entry) cell.classList.add(entry.sample?'sample':'logged');
+    cell.setAttribute('aria-pressed',String(selected===date));
+    cell.setAttribute('aria-label',date+(entry?.sample?', sample day':'')+', '+count+(count===1?' job':' jobs'));
+    grid.append(cell);
+  }
+  const pane=$('day');
+  const expanded=new Set([...pane.querySelectorAll('details[open]')].map(element=>element.dataset.id));
+  pane.replaceChildren(node('h2',new Date(selected+'T12:00:00').toLocaleDateString([], {weekday:'long',day:'numeric',month:'long'})));
+  const day=calendarDay(selected);
+  if(!day) {pane.append(node('p','No work recorded.'));return;}
+  if(day.sample) pane.append(node('small','Sample day · separate from your work log'));
+  function dayTime(label, event, style) {
+    const row = node('div','');
+    row.className = 'day-time '+style;
+    row.append(node('span',label),node('strong',event ? time(event.time) : 'In progress'));
+    return row;
+  }
+  if (!day.legacy) pane.append(dayTime('Left home',day.start,'departure'));
+  day.jobs.forEach((job,i)=>{
+    const tile=node('details','');
+    tile.dataset.id=day.date+'/'+i;
+    tile.open=expanded.has(tile.dataset.id);
+    const summary = node('summary','');
+    summary.className = 'job-summary';
+    const title = node('span',job.name ?? 'Job '+(i+1));
+    title.className = 'job-name';
+    const times = node('strong',job.legacy
+      ? (job.legacyStart || '—')+' – '+(job.legacyEnd || '—')
+      : time(job.start.time)+' – '+(job.end ? time(job.end.time) : 'Onsite'));
+    times.className = 'job-times';
+    const count = node('span',String(job.photos.length));
+    count.className = 'photo-count';
+    count.setAttribute('aria-label', job.photos.length + (job.photos.length === 1 ? ' photo' : ' photos'));
+    const footer = node('span','');
+    footer.className = 'job-footer';
+    footer.append(times,count);
+    summary.append(title,footer);
+    tile.append(summary);
+    if (job.legacy) { tile.append(node('small','Legacy job')); pane.append(tile); return; }
+    for (const [label,event] of [['Arrival',job.start],['Departure',job.end]]) {
+      if(event?.gps) tile.append(node('p',label+' GPS · '+event.gps.lat.toFixed(5)+', '+event.gps.lon.toFixed(5)+' (±'+Math.round(event.gps.accuracy)+' m)'));
+    }
+    if(!job.photos.length) tile.append(node('p','No photos attached.'));
+    const gallery = node('div','');
+    function showPhotos() {
+      if (!tile.open || gallery.childElementCount) return;
+    for(const photo of job.photos) {
+      const figure=node('figure','');
+      const picture=node('img','');
+      picture.src=photo.data;picture.alt=photo.name;picture.loading='lazy';
+      figure.append(picture,node('figcaption',photo.name));
+      gallery.append(figure);
+    }
+    }
+    tile.append(gallery);
+    tile.addEventListener('toggle', showPhotos);
+    showPhotos();
+    pane.append(tile);
+  });
+  if (!day.legacy) pane.append(dayTime('Arrived home',day.home,'return'));
+}
+for (const tab of ['capture','calendar','settings']) {
+  $(tab+'-tab').onclick = () => {
+    for (const panel of ['capture','calendar','settings']) {
+      $(panel+'-panel').hidden = panel !== tab;
+      $(panel+'-tab').setAttribute('aria-pressed', String(panel === tab));
+    }
+  };
+}
+try { $('weekends').checked = localStorage.getItem(key+'-weekends') === 'true'; } catch {}
+$('weekends').onchange=()=>{
+  try { localStorage.setItem(key+'-weekends',String($('weekends').checked)); } catch {}
+  render();
+};
+$('today').onclick=()=>{
+  const now = new Date();
+  selected = dateKey(now);
+  month = now;
+  render();
+};
+$('prev').onclick=()=>{month=new Date(month.getFullYear(),month.getMonth(),month.getDate()-7,12);selected=dateKey(month);render();};
+$('next').onclick=()=>{month=new Date(month.getFullYear(),month.getMonth(),month.getDate()+7,12);selected=dateKey(month);render();};
+$('photo-status').textContent = connected ? 'Immich checks once when you tap Leave job.' : 'Launch Start Planner to connect to Immich.';
+render();
+if (connected) loadLegacy();
+</script>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

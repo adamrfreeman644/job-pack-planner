@@ -137,7 +137,19 @@ def share_inventory():
  return bookings,templates,errors
 
 @app.get('/')
-def home(): return render_template('index.html')
+def home(): return render_template('clock.html')
+
+@app.get('/archive/focalpoint-xml-integration')
+def focalpoint_xml_archive(): return render_template('index.html')
+
+@app.get('/api/legacy')
+def legacy_jobs():
+ c=db()
+ try:
+  jobs=c.execute("SELECT day,title,postcode,job_no,start,finish FROM jobs ORDER BY day,position,id").fetchall()
+  return jsonify([dict(job) for job in jobs])
+ finally:
+  c.close()
 
 @app.get('/sw.js')
 def service_worker():

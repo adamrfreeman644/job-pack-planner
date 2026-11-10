@@ -1,3 +1,15 @@
+## Work Planner clock
+
+The main page records home and job times and shows them in a weekly calendar.
+New clock entries are stored in the browser on the device that records them.
+The calendar also displays saved legacy jobs from the existing planner database.
+
+The clock checks Immich once at job sign-out, using the existing connection in
+Settings. Keep the existing data volume when upgrading to retain the connection
+and legacy jobs. Serve the planner over HTTPS for phone location access.
+
+The previous workflow is preserved as **Focalpoint XML Integration** at
+`/archive/focalpoint-xml-integration`.
 # Job Pack Planner
 
 A self-hosted day planner for preparing Forms Mobile Electrical Services Job Pack XML files from Booking Alert XML files.
