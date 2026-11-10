@@ -17,7 +17,7 @@ main:has(#capture-panel:not([hidden])){height:100dvh;min-height:0;padding-top:12
 <main>
 <section class="capture" id="capture-panel" aria-label="Record work times"><div class="actions" id="actions"></div><div class="clock-time" id="clock-time"><button id="event-time" type="button" aria-label="Edit time to record" aria-haspopup="dialog"></button><button id="live-time" type="button" hidden>Use live time</button></div>
 <dialog id="time-picker" aria-label="Edit time to record"><form method="dialog"><div class="wheel-head"><span>Hours</span><span>Minutes</span></div><div class="wheels"><select id="hours" aria-label="Hours" size="5"></select><select id="minutes" aria-label="Minutes" size="5"></select></div><div class="wheel-actions"><button value="cancel">Cancel</button><button value="set">Set time</button></div></form></dialog><small id="leave-wait" hidden>Leave job is available two minutes after arrival.</small><p id="status" role="status"></p><small id="photo-feedback" aria-live="polite"></small></section>
-<section id="settings-panel" hidden><label class="weekends"><input id="weekends" type="checkbox"> Show weekends</label><p id="legacy-status">Loading legacy jobs…</p><strong>Job photos from Immich</strong><p class="muted" id="photo-status"></p><form id="immich-form">
+<section id="settings-panel" hidden><label class="weekends"><input id="weekends" type="checkbox"> Show weekends</label><p id="legacy-status">Loading legacy jobsâ€¦</p><strong>Job photos from Immich</strong><p class="muted" id="photo-status"></p><form id="immich-form">
         <label class="field">Immich address<input id="immich-url" type="url" placeholder="http://your-immich-server:2283" autocomplete="url"></label>
         <label class="field">API key<input id="immich-key" type="password" autocomplete="new-password" placeholder="Enter an Immich API key"></label>
         <p class="help" id="immich-key-help">The key stays on this server and is never displayed again.</p>
@@ -27,8 +27,8 @@ main:has(#capture-panel:not([hidden])){height:100dvh;min-height:0;padding-top:12
         <button type="submit" class="wide" id="immich-save">Save photo settings</button>
         <button type="button" class="secondary wide" id="immich-test">Save and test connection</button>
         <button type="button" class="secondary wide" id="immich-disconnect">Remove saved API key</button>
-      </form><p id="immich-status" role="status">Loading photo settings…</p></section>
-<section id="calendar-panel" hidden><div class="month"><button id="prev" aria-label="Previous week">‹</button><strong id="month"></strong><button id="today">Today</button><button id="next" aria-label="Next week">›</button></div><div id="calendar"></div><div id="day"></div></section>
+      </form><p id="immich-status" role="status">Loading photo settingsâ€¦</p></section>
+<section id="calendar-panel" hidden><div class="month"><button id="prev" aria-label="Previous week">â€¹</button><strong id="month"></strong><button id="today">Today</button><button id="next" aria-label="Next week">â€º</button></div><div id="calendar"></div><div id="day"></div></section>
 <nav class="bottom" aria-label="Planner views"><button id="capture-tab" aria-pressed="true">Clock</button><button id="calendar-tab" aria-pressed="false">Calendar</button><button id="settings-tab" aria-pressed="false">Settings</button></nav>
 </main>
 <script>
@@ -58,7 +58,7 @@ async function loadLegacy() {
     for (const row of rows) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(row.day)) continue;
       const day = legacyDays[row.day] ??= {date:row.day, jobs:[], legacy:true};
-      day.jobs.push({name:[row.title,row.postcode,row.job_no].filter(Boolean).join(' · '),
+      day.jobs.push({name:[row.title,row.postcode,row.job_no].filter(Boolean).join(' Â· '),
         legacy:true, legacyId:row.id, legacyStart:row.start, legacyEnd:row.finish, photos:[]});
     }
     $('legacy-status').textContent = rows.length ? rows.length+' legacy jobs loaded.' : 'No legacy database loaded.';
@@ -73,7 +73,7 @@ function photoStatus(message) {
 }
 async function checkPhotos(job) {
   if (!connected) return;
-  photoStatus('Checking Immich for this visit…');
+  photoStatus('Checking Immich for this visitâ€¦');
   try {
     const response = await fetch('/api/clock/photos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({start:job.start.time,end:job.end.time})});
     const result = await response.json();
@@ -242,7 +242,7 @@ function render() {
   pane.replaceChildren(node('h2',new Date(selected+'T12:00:00').toLocaleDateString([], {weekday:'long',day:'numeric',month:'long'})));
   const day=calendarDay(selected);
   if(!day) {pane.append(node('p','No work recorded.'));return;}
-  if(day.sample) pane.append(node('small','Sample day · separate from your work log'));
+  if(day.sample) pane.append(node('small','Sample day Â· separate from your work log'));
   function dayTime(label, event, style) {
     const row = node('div','');
     row.className = 'day-time '+style;
@@ -259,8 +259,8 @@ function render() {
     const title = node('span',job.name ?? 'Job '+(i+1));
     title.className = 'job-name';
     const times = node('strong',job.legacy
-      ? (job.legacyStart || '—')+' – '+(job.legacyEnd || '—')
-      : time(job.start.time)+' – '+(job.end ? time(job.end.time) : 'Onsite'));
+      ? (job.legacyStart || 'â€”')+' â€“ '+(job.legacyEnd || 'â€”')
+      : time(job.start.time)+' â€“ '+(job.end ? time(job.end.time) : 'Onsite'));
     times.className = 'job-times';
     const count = node('span',String(job.photos.length));
     count.className = 'photo-count';
@@ -278,7 +278,7 @@ function render() {
         if (!tile.open || loading) return;
         if (job.photosLoaded) { displayPhotos(); return; }
         loading = true;
-        content.replaceChildren(node('p','Checking Immich�'));
+        content.replaceChildren(node('p','Checking Immich…'));
         try {
           const response = await fetch('/api/clock/legacy/'+job.legacyId+'/photos',
             {method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
@@ -295,7 +295,7 @@ function render() {
       }
       function displayPhotos() {
         content.replaceChildren();
-        if (!job.photos.length) content.append(node('p','No photos in this visit�s time window, including five minutes either side.'));
+        if (!job.photos.length) content.append(node('p','No photos in this visit’s time window, including five minutes either side.'));
         for (const photo of job.photos) {
           const picture = node('img','');
           picture.src = photo.data;
@@ -310,7 +310,7 @@ function render() {
       return;
     }
     for (const [label,event] of [['Arrival',job.start],['Departure',job.end]]) {
-      if(event?.gps) tile.append(node('p',label+' GPS · '+event.gps.lat.toFixed(5)+', '+event.gps.lon.toFixed(5)+' (±'+Math.round(event.gps.accuracy)+' m)'));
+      if(event?.gps) tile.append(node('p',label+' GPS Â· '+event.gps.lat.toFixed(5)+', '+event.gps.lon.toFixed(5)+' (Â±'+Math.round(event.gps.accuracy)+' m)'));
     }
     if(!job.photos.length) tile.append(node('p','No photos attached.'));
     const gallery = node('div','');
