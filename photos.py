@@ -212,6 +212,18 @@ def register_photos(app, db):
         except (KeyError, TypeError, ValueError, OverflowError, OSError):
             raise PhotoError('Invalid job time window.')
         config = config_read()
+        photos = search_photos(config, start - timedelta(minutes=5), end + timedelta(minutes=5))
+        for photo in photos:
+            asset_id = photo['id']
+            token = clock_photo_token(config, asset_id)
+            photo['url'] = f'/api/clock/photos/{asset_id}/{token}'
+        return jsonify(photos)
+
+    @app.post('/api/clock/legacy/<int:job_id>/photos')
+    @protected
+    def clock_legacy_photos(job_id):
+        config = config_read()
+        start, end = job_window(job_read(job_id), {**config, 'margin': 5})
         photos = search_photos(config, start, end)
         for photo in photos:
             asset_id = photo['id']

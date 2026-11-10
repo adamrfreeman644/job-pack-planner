@@ -59,7 +59,7 @@ async function loadLegacy() {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(row.day)) continue;
       const day = legacyDays[row.day] ??= {date:row.day, jobs:[], legacy:true};
       day.jobs.push({name:[row.title,row.postcode,row.job_no].filter(Boolean).join(' Â· '),
-        legacy:true, legacyStart:row.start, legacyEnd:row.finish, photos:[]});
+        legacy:true, legacyId:row.id, legacyStart:row.start, legacyEnd:row.finish, photos:[]});
     }
     $('legacy-status').textContent = rows.length ? rows.length+' legacy jobs loaded.' : 'No legacy database loaded.';
     render();
@@ -270,7 +270,45 @@ function render() {
     footer.append(times,count);
     summary.append(title,footer);
     tile.append(summary);
-    if (job.legacy) { tile.append(node('small','Legacy job')); pane.append(tile); return; }
+    if (job.legacy) {
+      const content = node('div','');
+      tile.append(content);
+      let loading = false;
+      async function loadPhotos() {
+        if (!tile.open || loading) return;
+        if (job.photosLoaded) { displayPhotos(); return; }
+        loading = true;
+        content.replaceChildren(node('p','Checking Immich…'));
+        try {
+          const response = await fetch('/api/clock/legacy/'+job.legacyId+'/photos',
+            {method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+          const photos = await response.json();
+          if (!response.ok) throw new Error(photos.error);
+          job.photos = photos.map(photo=>({name:time(photo.taken),data:photo.url}));
+          job.photosLoaded = true;
+          count.textContent = String(job.photos.length);
+          count.setAttribute('aria-label',job.photos.length+' photos');
+          displayPhotos();
+        } catch (error) {
+          content.replaceChildren(node('p',error.message),button('Try again',loadPhotos));
+        } finally { loading = false; }
+      }
+      function displayPhotos() {
+        content.replaceChildren();
+        if (!job.photos.length) content.append(node('p','No photos in this visit’s time window, including five minutes either side.'));
+        for (const photo of job.photos) {
+          const picture = node('img','');
+          picture.src = photo.data;
+          picture.alt = photo.name;
+          picture.loading = 'lazy';
+          content.append(picture);
+        }
+      }
+      tile.addEventListener('toggle',loadPhotos);
+      if (tile.open) loadPhotos();
+      pane.append(tile);
+      return;
+    }
     for (const [label,event] of [['Arrival',job.start],['Departure',job.end]]) {
       if(event?.gps) tile.append(node('p',label+' GPS Â· '+event.gps.lat.toFixed(5)+', '+event.gps.lon.toFixed(5)+' (Â±'+Math.round(event.gps.accuracy)+' m)'));
     }
@@ -314,7 +352,7 @@ $('today').onclick=()=>{
 };
 $('prev').onclick=()=>{month=new Date(month.getFullYear(),month.getMonth(),month.getDate()-7,12);selected=dateKey(month);render();};
 $('next').onclick=()=>{month=new Date(month.getFullYear(),month.getMonth(),month.getDate()+7,12);selected=dateKey(month);render();};
-$('photo-status').textContent = connected ? 'Immich checks once when you tap Leave job.' : 'Launch Start Planner to connect to Immich.';
+$('photo-status').textContent = connected ? 'Photos include five minutes before arrival and after departure. New visits check at sign-out. Open a legacy job to load its photos.' : 'Launch Start Planner to connect to Immich.';
 render();
 if (connected) loadLegacy();
 if (location.hash === "#settings") $("settings-tab").click();

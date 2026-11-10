@@ -146,7 +146,7 @@ def focalpoint_xml_archive(): return render_template('index.html')
 def legacy_jobs():
  c=db()
  try:
-  jobs=c.execute("SELECT day,title,postcode,job_no,start,finish FROM jobs ORDER BY day,position,id").fetchall()
+  jobs=c.execute("SELECT id,day,title,postcode,job_no,start,finish FROM jobs ORDER BY day,position,id").fetchall()
   return jsonify([dict(job) for job in jobs])
  finally:
   c.close()
