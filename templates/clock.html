@@ -39,6 +39,14 @@ main:has(#calendar-panel:not([hidden])){padding-top:10px;padding-inline:12px;pad
 .travel-gap{margin:3px 0 3px 12px;font-size:13px}
 .day-time{padding:6px 10px;margin:5px 0;font-size:15px}
 .day-time strong{font-size:18px}
+
+.completed{flex:1;min-height:0;overflow:auto;grid-template-rows:auto minmax(0,1fr) auto;place-content:stretch;align-items:stretch;padding:8px;gap:10px}
+.completed > strong{font-size:clamp(22px,6vw,42px)}
+.completed .day-rundown{grid-auto-rows:1fr;min-height:0}
+.completed .day-rundown div{display:grid;align-content:center;padding:4px}
+.completed .day-rundown dd{font-size:clamp(17px,4.5vw,28px)}
+.completed button{flex:none}
+@media(max-height:420px){.completed{grid-template-rows:auto auto auto}}
 </style>
 <main>
 <section class="capture" id="capture-panel" aria-label="Record work times"><div class="actions" id="actions"></div><div class="clock-time" id="clock-time"><button id="event-time" type="button" aria-label="Edit time to record" aria-haspopup="dialog"></button><button id="live-time" type="button" hidden>Use live time</button></div>
