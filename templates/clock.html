@@ -22,6 +22,23 @@ main:has(#capture-panel:not([hidden])){height:100dvh;min-height:0;padding-top:12
 .completed .day-rundown{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0}
 .day-rundown div{background:white;border-radius:10px;padding:8px}
 .day-rundown dt{font-size:13px}.day-rundown dd{margin:2px 0 0;font-weight:750}
+
+main:has(#calendar-panel:not([hidden])){padding-top:10px;padding-inline:12px;padding-bottom:calc(68px + env(safe-area-inset-bottom))}
+#calendar-panel{margin:0;padding:12px}
+#calendar-panel .month{margin-bottom:6px}
+#calendar-panel .month button{min-height:40px;padding:6px 10px}
+#calendar{gap:4px}
+#calendar button{min-height:40px;padding:4px 0}
+.day-heading{margin:8px 0 4px}
+.day-heading h2{margin:0;font-size:18px}
+.day-heading button{min-height:36px}
+#day details{padding:6px 10px;margin:4px 0}
+#day .job-summary{padding:2px 0;font-size:16px}
+.job-footer{margin-top:3px}
+.job-duration{margin-top:2px}
+.travel-gap{margin:3px 0 3px 12px;font-size:13px}
+.day-time{padding:6px 10px;margin:5px 0;font-size:15px}
+.day-time strong{font-size:18px}
 </style>
 <main>
 <section class="capture" id="capture-panel" aria-label="Record work times"><div class="actions" id="actions"></div><div class="clock-time" id="clock-time"><button id="event-time" type="button" aria-label="Edit time to record" aria-haspopup="dialog"></button><button id="live-time" type="button" hidden>Use live time</button></div>
@@ -383,6 +400,7 @@ function render() {
   const current = active();
   const actions = $('actions');
   actions.replaceChildren();
+  actions.dataset.phase = !current ? 'start' : current.jobs.at(-1) && !current.jobs.at(-1).end ? 'onsite' : 'travel';
   $('leave-wait').hidden = true;
   $('clock-time').hidden = !current && Boolean(days[today]);
   if (!current) {
