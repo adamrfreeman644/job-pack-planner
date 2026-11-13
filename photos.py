@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from hashlib import sha256
+from hmac import compare_digest, digest
 from urllib.parse import urlsplit
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 from urllib.error import HTTPError, URLError
@@ -195,6 +196,51 @@ def register_photos(app, db):
         c = db()
         c.execute('CREATE TABLE IF NOT EXISTS photo_checks(job_id INTEGER PRIMARY KEY, fingerprint TEXT, assets TEXT, checked TEXT)')
         return c
+
+    def clock_photo_token(config, asset_id):
+        return digest(config['key'].encode(), ('clock-preview:' + asset_id).encode(), 'sha256').hex()
+
+    @app.post('/api/clock/photos')
+    @protected
+    def clock_photos():
+        values = request.get_json(silent=True)
+        try:
+            start, end = (datetime.fromtimestamp(values[name] / 1000, timezone.utc)
+                          for name in ('start', 'end'))
+            if not timedelta() <= end - start <= timedelta(days=2):
+                raise ValueError()
+        except (KeyError, TypeError, ValueError, OverflowError, OSError):
+            raise PhotoError('Invalid job time window.')
+        config = config_read()
+        photos = search_photos(config, start - timedelta(minutes=5), end + timedelta(minutes=5))
+        for photo in photos:
+            asset_id = photo['id']
+            token = clock_photo_token(config, asset_id)
+            photo['url'] = f'/api/clock/photos/{asset_id}/{token}'
+        return jsonify(photos)
+
+    @app.post('/api/clock/legacy/<int:job_id>/photos')
+    @protected
+    def clock_legacy_photos(job_id):
+        config = config_read()
+        start, end = job_window(job_read(job_id), {**config, 'margin': 5})
+        photos = search_photos(config, start, end)
+        for photo in photos:
+            asset_id = photo['id']
+            token = clock_photo_token(config, asset_id)
+            photo['url'] = f'/api/clock/photos/{asset_id}/{token}'
+        return jsonify(photos)
+
+    @app.get('/api/clock/photos/<asset_id>/<token>')
+    @protected
+    def clock_photo_preview(asset_id, token):
+        config = config_read()
+        if (not config.get('key') or not ASSET_ID.fullmatch(asset_id)
+                or not re.fullmatch(r'[0-9a-f]{64}', token)
+                or not compare_digest(token, clock_photo_token(config, asset_id))):
+            raise PhotoError('Photo preview unavailable.', 404)
+        raw, mime = immich_request(config, f'/assets/{asset_id}/thumbnail?size=preview', image=True)
+        return send_file(io.BytesIO(raw), mimetype=mime)
 
     @app.get('/api/photos/settings')
     @protected
