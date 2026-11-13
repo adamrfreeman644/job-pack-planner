@@ -13,7 +13,15 @@ main:has(#capture-panel:not([hidden])){height:100dvh;min-height:0;padding-top:12
 #capture-panel .actions button+button{min-height:36px}
 #capture-panel #status,#capture-panel #photo-feedback,#capture-panel #leave-wait{font-size:13px;line-height:1.2}
 @media(max-height:450px){.clock-time{margin-top:5px;padding-block:3px}#event-time{min-height:36px}.bottom button{padding-block:8px}}
-#immich-form .field input{display:block;width:100%;padding:10px;border:1px solid #cbbce3;border-radius:9px;margin-top:4px}#immich-form button{margin:4px 4px 4px 0}#upload-qr{border:0;border-radius:18px;padding:20px;max-width:90vw;text-align:center}#upload-qr::backdrop{background:#211b3566}#upload-qr img{max-width:100%;height:auto;margin:10px auto}#arrival-choice,#edit-day{border:0;border-radius:18px;padding:20px;width:min(92vw,480px);max-height:85dvh}#arrival-choice::backdrop,#edit-day::backdrop{background:#211b3566}#edit-fields fieldset{margin:12px 0;border:1px solid #cbbce3;border-radius:10px}#edit-fields input{display:block;width:100%;margin:4px 0 10px;padding:7px}#edit-error{color:#992e38}.completed{display:grid;place-content:center;gap:12px;text-align:center}.completed button{font-size:18px;min-height:44px!important}</style>
+#immich-form .field input{display:block;width:100%;padding:10px;border:1px solid #cbbce3;border-radius:9px;margin-top:4px}#immich-form button{margin:4px 4px 4px 0}#upload-qr{border:0;border-radius:18px;padding:20px;max-width:90vw;text-align:center}#upload-qr::backdrop{background:#211b3566}#upload-qr img{max-width:100%;height:auto;margin:10px auto}#arrival-choice,#edit-day{border:0;border-radius:18px;padding:20px;width:min(92vw,480px);max-height:85dvh}#arrival-choice::backdrop,#edit-day::backdrop{background:#211b3566}#edit-fields fieldset{margin:12px 0;border:1px solid #cbbce3;border-radius:10px}#edit-fields input{display:block;width:100%;margin:4px 0 10px;padding:7px}#edit-error{color:#992e38}.completed{display:grid;place-content:center;gap:12px;text-align:center}.completed button{font-size:18px;min-height:44px!important}
+.day-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.day-heading button{flex:none;background:#eee8f8;color:#392460;padding:8px 10px}
+.travel-gap{margin:8px 0 8px 14px;color:#46635d;font-size:14px}
+.job-duration{display:block;color:#46635d;font-size:13px;margin-top:4px}
+.completed .day-rundown{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0}
+.day-rundown div{background:white;border-radius:10px;padding:8px}
+.day-rundown dt{font-size:13px}.day-rundown dd{margin:2px 0 0;font-weight:750}
+</style>
 <main>
 <section class="capture" id="capture-panel" aria-label="Record work times"><div class="actions" id="actions"></div><div class="clock-time" id="clock-time"><button id="event-time" type="button" aria-label="Edit time to record" aria-haspopup="dialog"></button><button id="live-time" type="button" hidden>Use live time</button></div>
 <dialog id="time-picker" aria-label="Edit time to record"><form method="dialog"><div class="wheel-head"><span>Hours</span><span>Minutes</span></div><div class="wheels"><select id="hours" aria-label="Hours" size="5"></select><select id="minutes" aria-label="Minutes" size="5"></select></div><div class="wheel-actions"><button value="cancel">Cancel</button><button value="set">Set time</button></div></form></dialog><small id="leave-wait" hidden>Leave job is available two minutes after arrival.</small><p id="status" role="status"></p><small id="photo-feedback" aria-live="polite"></small></section>
@@ -327,6 +335,39 @@ async function stamp(day, type) {
   }, () => { $('status').textContent = 'Time saved. GPS was unavailable or permission was denied.'; },
   {enableHighAccuracy:true,timeout:10000,maximumAge:0});
 }
+function duration(ms) {
+  const minutes = Math.floor(ms/60000);
+  if (!minutes && ms > 0) return '<1 min';
+  const hours = Math.floor(minutes/60);
+  return hours ? hours+' h'+(minutes%60 ? ' '+minutes%60+' min' : '') : minutes+' min';
+}
+function visitTimes(job, date) {
+  if (!job.legacy) return [job.start?.time,job.end?.time];
+  const start = Date.parse(date+'T'+job.legacyStart);
+  let end = Date.parse(date+'T'+job.legacyEnd);
+  if (end < start) {
+    const next = new Date(end);
+    next.setDate(next.getDate()+1);
+    end = next.getTime();
+  }
+  return [start,end];
+}
+function dayRundown(day) {
+  const summary = node('dl','');
+  summary.className = 'day-rundown';
+  const total = day.home.time-day.start.time;
+  const onsite = day.jobs.reduce((sum,job)=>sum+(job.end ? job.end.time-job.start.time : 0),0);
+  for (const [label,value] of [
+    ['Left home',time(day.start.time)],['Arrived home',time(day.home.time)],
+    ['Jobs',String(day.jobs.length)],['On site',duration(onsite)],
+    ['Travel & gaps',duration(total-onsite)],['Total day',duration(total)]
+  ]) {
+    const item = node('div','');
+    item.append(node('dt',label),node('dd',value));
+    summary.append(item);
+  }
+  return summary;
+}
 function render() {
   const today = dateKey(new Date());
   const current = active();
@@ -338,7 +379,7 @@ function render() {
     if (days[today]) {
       const done = node('div','');
       done.className = 'completed';
-      done.append(node('strong','Today is complete'),button('Edit day',()=>editDay(days[today])));
+      done.append(node('strong','Today is complete'),dayRundown(days[today]),button('Edit day',()=>editDay(days[today])));
       actions.append(done);
     }
     else actions.append(button('Leave HOME', () => stamp(null,'start')));
@@ -385,10 +426,13 @@ function render() {
   }
   const pane=$('day');
   const expanded=new Set([...pane.querySelectorAll('details[open]')].map(element=>element.dataset.id));
-  pane.replaceChildren(node('h2',new Date(selected+'T12:00:00').toLocaleDateString([], {weekday:'long',day:'numeric',month:'long'})));
+  const heading = node('div','');
+  heading.className = 'day-heading';
+  heading.append(node('h2',new Date(selected+'T12:00:00').toLocaleDateString([], {weekday:'long',day:'numeric',month:'long'})));
+  if (days[selected]) heading.append(button('Edit day',()=>editDay(days[selected])));
+  pane.replaceChildren(heading);
   const day=calendarDay(selected);
   if(!day) {pane.append(node('p','No work recorded.'));return;}
-  if (days[selected]) pane.append(button('Edit day',()=>editDay(days[selected])));
   if(day.sample) pane.append(node('small','Sample day · separate from your work log'));
   function dayTime(label, event, style) {
     const row = node('div','');
@@ -397,7 +441,17 @@ function render() {
     return row;
   }
   if (!day.legacy) pane.append(dayTime('Left home',day.start,'departure'));
-  day.jobs.forEach((job,i)=>{
+  const visits = day.jobs.map((job,index)=>({job,index,times:visitTimes(job,day.date)}));
+  visits.sort((a,b)=>(Number.isFinite(a.times[0]) ? a.times[0] : Infinity) -
+    (Number.isFinite(b.times[0]) ? b.times[0] : Infinity));
+  let previousEnd = day.start?.time;
+  visits.forEach(({job,index:i,times:[start,end]})=>{
+    if (start > previousEnd) {
+      const gap = node('p','Travel & gaps · '+duration(start-previousEnd));
+      gap.className = 'travel-gap';
+      pane.append(gap);
+    }
+    previousEnd = Number.isFinite(end) ? Math.max(previousEnd ?? -Infinity,end) : undefined;
     const tile=node('details','');
     tile.dataset.id=day.date+'/'+i;
     tile.open=expanded.has(tile.dataset.id);
@@ -414,7 +468,14 @@ function render() {
     count.setAttribute('aria-label', job.photos.length + (job.photos.length === 1 ? ' photo' : ' photos'));
     const footer = node('span','');
     footer.className = 'job-footer';
-    footer.append(times,count);
+    const timing = node('span','');
+    timing.append(times);
+    if (Number.isFinite(start) && end >= start) {
+      const elapsed = node('span',duration(end-start)+' on site');
+      elapsed.className = 'job-duration';
+      timing.append(elapsed);
+    }
+    footer.append(timing,count);
     summary.append(title,footer);
     tile.append(summary);
     if (job.legacy) {
@@ -476,6 +537,11 @@ function render() {
     showPhotos();
     pane.append(tile);
   });
+  if (day.home?.time > previousEnd) {
+    const gap = node('p','Travel & gaps · '+duration(day.home.time-previousEnd));
+    gap.className = 'travel-gap';
+    pane.append(gap);
+  }
   if (!day.legacy) pane.append(dayTime('Arrived home',day.home,'return'));
 }
 for (const tab of ['capture','calendar','settings']) {
