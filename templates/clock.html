@@ -18,6 +18,7 @@ main:has(#capture-panel:not([hidden])){height:100dvh;min-height:0;padding-top:12
 .day-heading button{flex:none;background:#eee8f8;color:#392460;padding:8px 10px}
 .travel-gap{margin:8px 0 8px 14px;color:#46635d;font-size:14px}
 .job-duration{display:block;color:#46635d;font-size:13px;margin-top:4px}
+.duration-icon{display:inline-block;margin-right:5px;font-size:12px;filter:grayscale(1)}
 .completed .day-rundown{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0}
 .day-rundown div{background:white;border-radius:10px;padding:8px}
 .day-rundown dt{font-size:13px}.day-rundown dd{margin:2px 0 0;font-weight:750}
@@ -341,6 +342,15 @@ function duration(ms) {
   const hours = Math.floor(minutes/60);
   return hours ? hours+' h'+(minutes%60 ? ' '+minutes%60+' min' : '') : minutes+' min';
 }
+function durationBadge(tag, label, icon, ms) {
+  const badge = node(tag,'');
+  const symbol = node('span',icon);
+  symbol.className = 'duration-icon';
+  symbol.setAttribute('aria-hidden','true');
+  badge.title = label;
+  badge.append(symbol,node('span',duration(ms)));
+  return badge;
+}
 function visitTimes(job, date) {
   if (!job.legacy) return [job.start?.time,job.end?.time];
   const start = Date.parse(date+'T'+job.legacyStart);
@@ -447,7 +457,7 @@ function render() {
   let previousEnd = day.start?.time;
   visits.forEach(({job,index:i,times:[start,end]})=>{
     if (start > previousEnd) {
-      const gap = node('p','Travel & gaps · '+duration(start-previousEnd));
+      const gap = durationBadge('p','Travel and gaps','🚗',start-previousEnd);
       gap.className = 'travel-gap';
       pane.append(gap);
     }
@@ -471,7 +481,7 @@ function render() {
     const timing = node('span','');
     timing.append(times);
     if (Number.isFinite(start) && end >= start) {
-      const elapsed = node('span',duration(end-start)+' on site');
+      const elapsed = durationBadge('span','Time on site','🔧',end-start);
       elapsed.className = 'job-duration';
       timing.append(elapsed);
     }
@@ -538,7 +548,7 @@ function render() {
     pane.append(tile);
   });
   if (day.home?.time > previousEnd) {
-    const gap = node('p','Travel & gaps · '+duration(day.home.time-previousEnd));
+    const gap = durationBadge('p','Travel and gaps','🚗',day.home.time-previousEnd);
     gap.className = 'travel-gap';
     pane.append(gap);
   }
